@@ -98,6 +98,9 @@ option(${UPPER_PROJECT_NAME}_VERBOSE "Enable verbose output" OFF)
 option(${UPPER_PROJECT_NAME}_SEQUENTIAL_INITIALIZATION
   "Sequentially consistent initialization" OFF)
 
+option(${UPPER_PROJECT_NAME}_WITH_DISTCONV
+  "Enable Distconv distributed convolution" OFF)
+
 # FIXME what if "fp16"?
 set(${UPPER_PROJECT_NAME}_DATATYPE "float"
   CACHE STRING "The datatype to use in LBANN")
@@ -273,6 +276,20 @@ if (LBANN_WITH_CONDUIT)
   endif(NOT LBANN_HAS_CONDUIT)
 endif (LBANN_WITH_CONDUIT)
 
+if (LBANN_WITH_DISTCONV)
+  message(STATUS "DISTCONV requested")
+  find_package(DISTCONV)
+  set(LBANN_HAS_DISTCONV ${DISTCONV_FOUND}) 
+  if (NOT LBANN_HAS_DISTCONV)
+    message(FATAL_ERROR
+      "Requested LBANN_WITH_DISTCONV but Distconv not found. "
+      "Distconv is now disabled. "
+      "Try specifying DISTCONV_DIR as the root of an DISTCONV install. "
+      "Alternatively, build with LBANN_WITH_DISTCONV=OFF.")
+    set(LBANN_WITH_DISTCONV OFF)
+  endif(NOT LBANN_HAS_DISTCONV)      
+endif (LBANN_WITH_DISTCONV)
+
 # Handle the documentation
 add_subdirectory(docs)
 
@@ -323,8 +340,13 @@ if (LBANN_HAS_ALUMINUM)
   target_link_libraries(lbann PUBLIC ${Aluminum_LIBRARIES})
 endif ()
 
+
 if (LBANN_HAS_CONDUIT)
   target_link_libraries(lbann PUBLIC CONDUIT::CONDUIT)
+endif ()
+
+if (LBANN_HAS_DISTCONV)
+  target_link_libraries(lbann PUBLIC DISTCONV::DISTCONV)
 endif ()
 
 #== FIXME HERE DOWN ==

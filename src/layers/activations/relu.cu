@@ -65,14 +65,41 @@ void relu_layer<data_layout::MODEL_PARALLEL, El::Device::GPU>::bp_compute() {
 }
 template <>
 void relu_layer<data_layout::DATA_PARALLEL, El::Device::GPU>::fp_compute() {
+#ifdef LBANN_HAS_DISTCONV
+  if (distconv_enabled()) {
+    fp_compute_distconv();
+    if (!early_terminate_last_iteration()) {
+      return;
+    }
+    // fall through the normal code path to obtain reference results
+  }
+#endif
   cuda::apply_entrywise_unary_operator<op>(get_prev_activations(),
                                            get_activations());
+#ifdef LBANN_HAS_DISTCONV
+  if (distconv_enabled() && early_terminate_last_iteration()) {
+    dump_reference_activations();
+  }
+#endif // LBANN_HAS_DISTCONV
 }
 template <>
 void relu_layer<data_layout::DATA_PARALLEL, El::Device::GPU>::bp_compute() {
+#ifdef LBANN_HAS_DISTCONV
+  if (distconv_enabled()) {
+    bp_compute_distconv();
+    if (!early_terminate_last_iteration()) {
+      return;
+    }
+  }
+#endif // LBANN_HAS_DISTCONV
   cuda::apply_entrywise_binary_operator<op_backprop>(get_prev_activations(),
                                                      get_prev_error_signals(),
                                                      get_error_signals());
+#ifdef LBANN_HAS_DISTCONV
+  if (distconv_enabled() && early_terminate_last_iteration()) {
+    dump_reference_error_signals();
+  }
+#endif // LBANN_HAS_DISTCONV
 }
   
 } // namespace lbann

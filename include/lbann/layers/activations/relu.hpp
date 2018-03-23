@@ -28,6 +28,7 @@
 #define LBANN_LAYER_ACTIVATION_RELU_HPP_INCLUDED
 
 #include "lbann/layers/layer.hpp"
+#include "lbann/utils/distconv.hpp"
 
 namespace lbann {
 
@@ -43,9 +44,47 @@ public:
   std::string get_type() const override { return "ReLU"; }
   data_layout get_data_layout() const override { return T_layout; }
   El::Device get_device_allocation() const override { return Dev; }
+
 protected:
   void fp_compute() override;
   void bp_compute() override;
+  void bp_compute() override;
+
+#ifdef LBANN_HAS_DISTCONV
+ protected:
+  dc::ReLU *m_relu;
+  void fp_compute_distconv();
+  void bp_compute_distconv();
+
+ public:
+  void setup_tensor_distribution_init(
+      std::map<const Layer*, std::array<dc::Dist, 4>> &dists,
+      std::map<dc::Dist*, std::set<dc::Dist*>> &invariants,
+      std::set<dc::Dist*> &updated,
+      std::set<dc::Dist*> &fixed) override {
+    Layer::setup_tensor_distribution_init(
+        dists, invariants, updated, fixed);
+  }
+
+  void setup_tensors_fwd(const std::array<dc::Dist, 4> &dists) override {
+    Layer::setup_tensors_fwd(dists);
+  }
+
+  void setup_tensors_bwd(const std::array<dc::Dist, 4> &dists) override {
+    Layer::setup_tensors_bwd(dists);
+  }
+
+  bool using_distconv() const override {
+    char *env = getenv("DISTCONV_DISABLE");
+    if (env) {
+      std::string s(env);
+      if (s.find(get_name()) != std::string::npos) {
+        return false;
+      }
+    }
+    return true;
+  }
+#endif // LBANN_HAS_DISTCONV
 };
 
 } // namespace lbann
