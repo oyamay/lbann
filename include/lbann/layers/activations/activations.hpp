@@ -46,11 +46,15 @@ namespace lbann {
  */
 DEFINE_ENTRYWISE_UNARY_LAYER(log_sigmoid_layer, "log sigmoid")
 
+// DISTCONV does not support the unary-op layer yet. ReLU is still
+// defined in its own header and source files.
+#ifndef LBANN_HAS_DISTCONV
 /** Rectified linear unit layer.
  *  \f[ \text{ReLU}(x) = \text{max}(x, 0) \f]
  *  See https://en.wikipedia.org/wiki/Rectifier_(neural_networks)
  */
 DEFINE_ENTRYWISE_UNARY_LAYER(relu_layer, "ReLU")
+#endif // LBANN_HAS_DISTCONV
 
 /** Scaled exponential rectified linear unit layer.
  *  \f[
