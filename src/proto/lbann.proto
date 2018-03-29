@@ -744,6 +744,20 @@ message Motif {
 }
 
 //========================================================================
+// Parallel strategies for model-parallelism
+//========================================================================
+
+message ParallelStrategy {
+  int64 sample_groups = 1;
+  int64 height_groups = 2;
+  int64 width_groups = 3;
+  int64 channel_groups = 4;
+  int64 filter_groups = 5;
+  // For fully-connected layers.
+  int64 replications = 6;
+}
+
+//========================================================================
 // Layers
 //========================================================================
 
@@ -756,6 +770,7 @@ message Layer {
    string weights = 54;
    bool num_neurons_from_data_reader = 53;
    bool freeze = 5;
+   ParallelStrategy parallel_strategy = 500;
 
    repeated WeightsData weights_data = 153;
    string top = 154;
