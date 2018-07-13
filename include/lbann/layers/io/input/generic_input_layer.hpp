@@ -265,6 +265,8 @@ class generic_input_layer : public io_layer {
           << "could not fp_compute for I/O layers : encoutered generic_io_buffer type";
       throw lbann_exception(err.str());
     }
+    //std::cerr << "Confine load imbalance due to I/O within the I/O layer\n";
+    MPI_Barrier(this->get_comm()->get_model_comm().comm);
   }
 
   /**
