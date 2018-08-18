@@ -459,6 +459,8 @@ class model {
     m_elapsed = 0.0;
     m_num_iterations = 0;
   }
+
+  void setup_distconv();
 #endif
 };
 
