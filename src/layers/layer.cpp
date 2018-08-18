@@ -1361,7 +1361,7 @@ void Layer::setup_prev_activations_tensor(const std::array<Dist, 4> &dists) {
                                      spatial_local_size, m_input_decomposition_block);
     assert0(m_prev_activations_t.allocate());
     m_prev_activations_t.zero();
-    m_prev_activations_shuffler = new TensorShuffler(
+    m_prev_activations_shuffler = get_tensor_shuffler(
         m_prev_activations_const_view, m_prev_activations_t);
 
     for (int i = 0; i < 3; ++i) {
@@ -1406,7 +1406,7 @@ void Layer::setup_activations_copyout_tensor(const std::array<Dist, 4> &dists) {
   m_activations_copyout = TensorDev(output_tensor_shape, loc, sample_dist,
                                     output_local_shape, sample_block_size);
   if (m_child_copy_out_required) {
-    m_activations_shuffler = new TensorShuffler(
+    m_activations_shuffler = get_tensor_shuffler(
         m_activations_t, m_activations_copyout);
     for (int i = 0; i < 3; ++i) {
       m_activations_shuffler_last_mb[i] = nullptr;
@@ -1444,7 +1444,7 @@ void Layer::setup_prev_error_signals_tensor(const std::array<Dist, 4> &dists) {
                                        m_output_decomposition_block);
     assert0(m_prev_error_signals_t.allocate());
     m_prev_error_signals_t.zero();
-    m_prev_error_signals_shuffler = new TensorShuffler(
+    m_prev_error_signals_shuffler = get_tensor_shuffler(
         m_prev_error_signals_const_view, m_prev_error_signals_t);
     for (int i = 0; i < 3; ++i) {
       m_prev_error_signals_shuffler_last_mb[i] = nullptr;
@@ -1486,7 +1486,7 @@ void Layer::setup_error_signals_copyout_tensor(const std::array<Dist, 4> &dists)
   m_error_signals_copyout = TensorDev(input_tensor_shape, loc, sample_dist,
                                       input_local_shape, sample_block_size);
   if (m_parent_copy_in_required) {
-    m_error_signals_shuffler = new TensorShuffler(
+    m_error_signals_shuffler = get_tensor_shuffler(
         m_error_signals_t, m_error_signals_copyout);
     for (int i = 0; i < 3; ++i) {
       m_error_signals_shuffler_last_mb[i] = nullptr;
@@ -1634,7 +1634,7 @@ void Layer::ensure_prev_activations() {
     int shfl_idx = static_cast<int>(this->m_model->get_execution_mode());
     assert_always(shfl_idx >= 0 && shfl_idx < 3);
     if (m_prev_activations_shuffler_last_mb[shfl_idx] == nullptr) {
-      m_prev_activations_shuffler_last_mb[shfl_idx] = new TensorShuffler(
+      m_prev_activations_shuffler_last_mb[shfl_idx] = get_tensor_shuffler(
           m_prev_activations_const_view, m_prev_activations_t);
     }
     shuffler = m_prev_activations_shuffler_last_mb[shfl_idx];      
@@ -1663,7 +1663,7 @@ void Layer::copy_out_activations() {
     int shfl_idx = static_cast<int>(this->m_model->get_execution_mode());    
     assert_always(shfl_idx >= 0 && shfl_idx < 3);
     if (m_activations_shuffler_last_mb[shfl_idx] == nullptr) {
-      m_activations_shuffler_last_mb[shfl_idx] = new TensorShuffler(
+      m_activations_shuffler_last_mb[shfl_idx] = get_tensor_shuffler(
           m_activations_t, m_activations_copyout);          
     }
     shuffler = m_activations_shuffler_last_mb[shfl_idx];      
@@ -1696,7 +1696,7 @@ void Layer::ensure_prev_error_signals() {
     int shfl_idx = static_cast<int>(this->m_model->get_execution_mode());
     assert_always(shfl_idx >= 0 && shfl_idx < 3);
     if (m_prev_error_signals_shuffler_last_mb[shfl_idx] == nullptr) {
-      m_prev_error_signals_shuffler_last_mb[shfl_idx] = new TensorShuffler(
+      m_prev_error_signals_shuffler_last_mb[shfl_idx] = get_tensor_shuffler(
           m_prev_error_signals_const_view, m_prev_error_signals_t);
     }
     shuffler = m_prev_error_signals_shuffler_last_mb[shfl_idx];      
@@ -1736,7 +1736,7 @@ void Layer::copy_out_error_signals() {
     int shfl_idx = static_cast<int>(this->m_model->get_execution_mode());            
     assert_always(shfl_idx >= 0 && shfl_idx < 3);
     if (m_error_signals_shuffler_last_mb[shfl_idx] == nullptr) {
-      m_error_signals_shuffler_last_mb[shfl_idx] = new TensorShuffler(
+      m_error_signals_shuffler_last_mb[shfl_idx] = get_tensor_shuffler(
           m_error_signals_t, m_error_signals_copyout);
     }
     shuffler = m_error_signals_shuffler_last_mb[shfl_idx];      
