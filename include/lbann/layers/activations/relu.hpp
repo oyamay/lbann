@@ -48,7 +48,6 @@ public:
 protected:
   void fp_compute() override;
   void bp_compute() override;
-  void bp_compute() override;
 
 #ifdef LBANN_HAS_DISTCONV
  protected:
