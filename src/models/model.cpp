@@ -501,11 +501,26 @@ void model::setup_layers() {
   for (const auto& layer : m_layers) {
     layer->set_model(this);
     layer->setup();
+    // Delay check_setup afeter setup_distconv
+#ifndef LBANN_HAS_DISTCONV
+    layer->check_setup();
+    if (m_comm->am_world_master()) {
+      std::cout << print_layer_description(layer) << std::endl;
+    }
+#endif
+  }
+#ifdef LBANN_HAS_DISTCONV
+  for (const auto& layer : m_layers) {
+    layer->enable_distconv();
+  }
+  for (const auto& layer : m_layers) {
+    layer->setup_distconv();
     layer->check_setup();
     if (m_comm->am_world_master()) {
       std::cout << print_layer_description(layer) << std::endl;
     }
   }
+#endif
 }
 
 void model::setup_weights() {
@@ -1506,9 +1521,6 @@ void model::setup_distconv() {
   std::map<dc::Dist*, std::set<dc::Dist*>> invariants;
   std::set<dc::Dist*> updated;
   std::set<dc::Dist*> fixed;
-  for (const auto& layer : m_layers) {  
-    layer->setup_distconv();
-  }
   for (const auto& layer : m_layers) {  
     layer->setup_tensor_distribution_init(dists, invariants, updated, fixed);
   }
