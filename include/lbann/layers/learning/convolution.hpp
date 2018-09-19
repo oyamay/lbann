@@ -429,14 +429,16 @@ class convolution_layer : public base_convolution_layer<Dev> {
     this->setup_prev_activations_tensor(dists);
     this->setup_activations_tensor(dists);
     this->setup_activations_copyout_tensor(dists);    
+
+    dc::Dist shared_dist(dists[0].get_locale_shape(), 1, 0, 0);
     
     Array4 kernel_shape = {this->m_kernel_dims[3], this->m_kernel_dims[2],
                            this->m_kernel_dims[1], this->m_kernel_dims[0]};
     const LocaleMPI loc(this->m_comm->get_model_comm().comm, false);
-    m_kernel_t = TensorDev(kernel_shape, loc, dc::Dist());
+    m_kernel_t = TensorDev(kernel_shape, loc, shared_dist);
     assert0(tensor::View(
         m_kernel_t, this->get_weights()[0]->get_values().LockedBuffer()));
-    m_kernel_gradient_e = TensorDev(kernel_shape, loc, dc::Dist());
+    m_kernel_gradient_e = TensorDev(kernel_shape, loc, shared_dist);
     assert0(tensor::View(
         m_kernel_gradient_e, this->m_kernel_gradient.Buffer()));
 
@@ -451,7 +453,7 @@ class convolution_layer : public base_convolution_layer<Dev> {
         << "\n";
     if (this->m_bias_scaling_factor != DataType(0)) {
       Array4 bias_shape = {1, 1, this->get_output_dims()[0], 1};
-      m_bias_t = TensorDev(bias_shape, loc, dc::Dist());
+      m_bias_t = TensorDev(bias_shape, loc, shared_dist);
       assert0(tensor::View(m_bias_t, this->get_weights()[1]->get_values().LockedBuffer()));
       MPIPrintStreamDebug() << "Bias tensor: " << m_bias_t << "\n";
       m_conv->setup_bias(m_bias_t);
@@ -459,7 +461,7 @@ class convolution_layer : public base_convolution_layer<Dev> {
       // Bias backprop
       optimizer* bias_optimizer = this->get_weights()[1]->get_optimizer();      
       if (bias_optimizer != nullptr) {
-        m_bias_gradient_t = TensorDev(bias_shape, loc, dc::Dist());
+        m_bias_gradient_t = TensorDev(bias_shape, loc, shared_dist);
         assert0(tensor::View(m_bias_gradient_t,
                              this->m_bias_gradient.Buffer()));
         m_conv->setup_bias_gradient(m_bias_gradient_t);
