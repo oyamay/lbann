@@ -2,8 +2,7 @@ set(Aluminum_URL https://github.com/llnl/Aluminum
   CACHE STRING "The URL from which to clone Aluminum")
 
 set(Aluminum_TAG
-  #"master"
-  "1e8b16a6bf09a8dc2cc98166c0191bb9b7f1ba96"
+  "master"
   CACHE STRING "The git tag to checkout for Aluminum")
 
 set(Aluminum_CMAKE_BUILD_TYPE "${CMAKE_BUILD_TYPE}"

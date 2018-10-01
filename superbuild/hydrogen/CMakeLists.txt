@@ -71,8 +71,7 @@ set(Hydrogen_URL "https://github.com/LLNL/Elemental.git"
 
 # ... then the tag.
 set(Hydrogen_TAG
-  #"hydrogen"
-  "d337895ac88cd61cec41577720e6a13e36afd191"
+  "hydrogen"
   CACHE STRING "The git tag or hash to checkout for Hydrogen")
 
 
