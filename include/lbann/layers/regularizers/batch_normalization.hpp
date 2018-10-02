@@ -294,17 +294,6 @@ class batch_normalization_layer : public regularizer_layer {
   dc::TensorDev m_scale_gradient_t;
   dc::TensorDev m_bias_gradient_t;
 
-  bool using_distconv() const override {
-    char *env = getenv("DISTCONV_DISABLE");
-    if (env) {
-      std::string s(env);
-      if (s.find(get_name()) != std::string::npos) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   void setup_tensors_fwd(const std::array<dc::Dist, 4> &dists) override {
     Layer::setup_tensors_fwd(dists);
     if (!distconv_enabled()) return;

@@ -75,16 +75,6 @@ protected:
     Layer::setup_tensors_bwd(dists);
   }
 
-  bool using_distconv() const override {
-    char *env = getenv("DISTCONV_DISABLE");
-    if (env) {
-      std::string s(env);
-      if (s.find(get_name()) != std::string::npos) {
-        return false;
-      }
-    }
-    return true;
-  }
 #endif // LBANN_HAS_DISTCONV
 };
 

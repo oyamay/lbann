@@ -523,6 +523,8 @@ class convolution_layer : public base_convolution_layer<Dev> {
   std::string m_bwd_filter_algo = "DEFAULT";
 
   bool using_distconv() const override {
+    if (!Layer::using_distconv()) return false;
+
     if (!(this->m_kernel_dims[2] == this->m_kernel_dims[3] &&
           this->m_kernel_dims[2] == this->m_pads[0] * 2 + 1 &&
           this->m_kernel_dims[3] == this->m_pads[1] * 2 + 1)) {
