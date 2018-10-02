@@ -28,7 +28,9 @@
 #define LBANN_LAYER_ACTIVATION_RELU_HPP_INCLUDED
 
 #include "lbann/layers/layer.hpp"
+#ifdef LBANN_HAS_DISTCONV
 #include "lbann/utils/distconv.hpp"
+#endif
 
 namespace lbann {
 
