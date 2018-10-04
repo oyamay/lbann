@@ -136,7 +136,7 @@ void batch_normalization_layer<data_layout::DATA_PARALLEL, El::Device::CPU>::fp_
     }
 
   }
-    
+
 }
 
 template <>
@@ -268,7 +268,7 @@ void batch_normalization_layer<data_layout::DATA_PARALLEL, El::Device::CPU>::bp_
 
     }
   }
-  
+
 }
-  
+
 } // namespace lbann

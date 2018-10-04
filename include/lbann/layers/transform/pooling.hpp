@@ -211,11 +211,11 @@ public:
     cudnnPoolingMode_t cudnn_pool_mode;
     switch(m_pool_mode) {
     case pool_mode::max:
-    #ifndef LBANN_DETERMINISTIC    
+    #ifndef LBANN_DETERMINISTIC
       cudnn_pool_mode = CUDNN_POOLING_MAX; break;
     #else
       cudnn_pool_mode = CUDNN_POOLING_MAX_DETERMINISTIC; break;
-    #endif  
+    #endif
       // This does not seem to be necessary. It's not clear what the
       // difference of the two algorithms is.
       if (getenv("DISTCONV_DETERMINISTIC")) {
@@ -258,9 +258,9 @@ public:
       } else {
         fp_compute_cudnn();
       }
-#else      
+#else
       fp_compute_cudnn();
-#endif      
+#endif
     } else {
       fp_compute_im2col();
     }
@@ -276,11 +276,11 @@ public:
           dump_reference_error_signals();
         }
       } else {
-        bp_compute_cudnn();        
+        bp_compute_cudnn();
       }
 #else
       bp_compute_cudnn();
-#endif      
+#endif
     } else {
       bp_compute_im2col();
     }
@@ -512,13 +512,13 @@ public:
     }
 
   }
-  
-  
+
+
   void fp_compute_distconv() {
 #ifndef LBANN_HAS_DISTCONV
     throw lbann_exception("pooling_layer: DISTCONV not detected");
 #else
-    dc::MPIPrintStreamDebug() << get_name() << ": " << __FUNCTION__ << "\n";
+    dc::MPIPrintStreamDebug() << get_name() << ": " << __FUNCTION__;
     assert_always(distconv_enabled());
 
     m_pooling->forward(DataType(1.0), m_prev_activations_t,
@@ -532,27 +532,20 @@ public:
 #ifndef LBANN_HAS_DISTCONV
     throw lbann_exception("pooling_layer: DISTCONV not detected");
 #else
-    dc::MPIPrintStreamDebug() << get_name() << ": " << __FUNCTION__ << "\n";
+    dc::MPIPrintStreamDebug() << get_name() << ": " << __FUNCTION__;
     assert_always(distconv_enabled());
 
-#ifdef DISTCONV_ZERO_OUT_ERROR_SIGNALS    
-    m_error_signals_t.zero();
-    m_pooling->backward(DataType(1.0), m_activations_t, m_prev_error_signals_t,
-                        m_prev_activations_t, DataType(1.0), m_error_signals_t);
-#else
     m_pooling->backward(DataType(1.0), m_activations_t, m_prev_error_signals_t,
                         m_prev_activations_t, DataType(0.0), m_error_signals_t);
-#endif
-
     copy_out_error_signals();
-#endif    
-  }  
-  
+#endif
+  }
+
 #ifdef LBANN_HAS_DISTCONV
  public:
 
   void setup_tensor_distribution_init(
-      std::map<const Layer*, std::array<dc::Dist, 4>> &dists,      
+      std::map<const Layer*, std::array<dc::Dist, 4>> &dists,
       std::map<dc::Dist*, std::set<dc::Dist*>> &invariants,
       std::set<dc::Dist*> &updated,
       std::set<dc::Dist*> &fixed) override {
@@ -603,7 +596,7 @@ public:
             filter_dims, strides, use_padding);
     return output_spatial_local_shape;
   }
-  
+
   void setup_tensors_fwd(const std::array<dc::Dist, 4> &dists) override {
     Layer::setup_tensors_fwd(dists);
     if (!distconv_enabled()) return;
@@ -642,7 +635,7 @@ public:
     default:
       throw lbann_exception("pooling_layer: no DISTCONV implementation for pooling mode");
     }
-    
+
     dc::MPIPrintStreamDebug()
         << "Pooling (" << get_name() << "): "
         << "prev_activations_const_view: " << m_prev_activations_const_view
@@ -652,8 +645,7 @@ public:
         << ", prev_error_signals_const_view: " << m_prev_error_signals_const_view
         << ", prev_error_signals_t: " << m_prev_error_signals_t
         << ", error_signals_copyout: " << m_error_signals_copyout
-        << ", error_signals_t: " << m_error_signals_t
-        << "\n";
+        << ", error_signals_t: " << m_error_signals_t;
     m_pooling->setup(m_prev_activations_t,
                      m_activations_t,
                      m_error_signals_t,
@@ -667,7 +659,7 @@ public:
 
  protected:
   dc::Pooling *m_pooling;
-  
+
   bool using_distconv() const override {
     if (!Layer::using_distconv()) return false;
 
@@ -690,7 +682,7 @@ public:
     if (!((m_strides[0] == 1 && m_strides[1] == 1) ||
          (m_strides[0] == stencil_h + 1 &&
           m_strides[1] == stencil_w + 1))) {
-      dc::MPIPrintStreamDebug() << "pooling: unsupported due to strides\n";
+      dc::MPIPrintStreamDebug() << "pooling: unsupported due to strides";
       return false;
     }
     char *env = getenv("DISTCONV_DISABLE");
@@ -703,7 +695,7 @@ public:
 
     return true;
   }
-  
+
 #endif
 
 #ifdef LBANN_HAS_CUDNN

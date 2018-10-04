@@ -49,7 +49,7 @@
 #include "mpi.h"
 
 namespace lbann {
-  
+
 ////////////////////////////////////////////////////////////
 // Constructors and destructor
 ////////////////////////////////////////////////////////////
@@ -559,7 +559,7 @@ void model::setup_weights() {
 
   // Setup weights
   for (auto* w : m_weights) { w->setup(); }
-  
+
 }
 
 void model::add_connected_layers() {
@@ -658,7 +658,7 @@ void model::add_evaluation_layers() {
   }
 
 }
-  
+
 void model::add_dummy_layers() {
   for (size_t i = 0; i < m_layers.size(); ++i) {
     auto layer = m_layers[i];
@@ -827,7 +827,7 @@ void model::train(int num_epochs, int num_batches) {
     } else {
       while (!train_mini_batch()) {}
     }
-    
+
     // Finalize epoch
     ++m_current_epoch;
     reconcile_weight_values();
@@ -847,7 +847,7 @@ void model::train(int num_epochs, int num_batches) {
 
     // Evaluate on validation set
     evaluate(execution_mode::validation);
-    
+
   }
   do_train_end_cbs();
 }
@@ -997,7 +997,7 @@ void model::reconcile_weight_values() {
   }
   for (auto& req : reqs) { m_comm->wait(req); }
 }
-  
+
 ////////////////////////////////////////////////////////////
 // Callbacks
 ////////////////////////////////////////////////////////////
@@ -1516,23 +1516,23 @@ void model::setup_distconv() {
   std::map<dc::Dist*, std::set<dc::Dist*>> invariants;
   std::set<dc::Dist*> updated;
   std::set<dc::Dist*> fixed;
-  for (const auto& layer : m_layers) {  
+  for (const auto& layer : m_layers) {
     layer->setup_tensor_distribution_init(dists, invariants, updated, fixed);
   }
-  for (const auto& layer : m_layers) {    
+  for (const auto& layer : m_layers) {
     layer->setup_tensor_distribution_add_adjacent_invariants(
         dists, invariants);
   }
   while (updated.size() > 0) {
     dc::MPIRootPrintStreamDebug() << "# of updated dists: " << updated.size() << "\n";
-    std::set<dc::Dist*> updated_new;    
+    std::set<dc::Dist*> updated_new;
     for (const auto d: updated) {
       dc::MPIRootPrintStreamDebug() << "Updated: " << *d << "\n";
       for (auto p: invariants[d]) {
         dc::MPIRootPrintStreamDebug() << "Invariant: " << *p << "\n";
         if (d->get_overlap() != p->get_overlap()) {
           if (fixed.find(p) != fixed.end()) {
-            throw lbann_exception("Cannot satisfy the distconv constraints");            
+            throw lbann_exception("Cannot satisfy the distconv constraints");
           }
           p->set_overlap(d->get_overlap());
           updated_new.insert(p);
@@ -1544,15 +1544,15 @@ void model::setup_distconv() {
   // displays parent and child layer names for debugging
   for (const auto& layer : m_layers) {
     std::stringstream names;
-    names << "parent:";
+    names << "parents:";
     for (const auto &parent: layer->get_parent_layers()) {
       names << " " << parent->get_name();
     }
-    names << ", children:";
+    names << "; children:";
     for (const auto &child: layer->get_child_layers()) {
       names << " " << child->get_name();
     }
-    dc::MPIRootPrintStreamInfo()
+    dc::MPIRootPrintStreamDebug()
         << layer->get_name() << "; " << names.str();
   }
   for (const auto& layer : m_layers) {
@@ -1562,23 +1562,22 @@ void model::setup_distconv() {
           << "; prev_activations_dist: " << dists[layer][0]
           << ", activations_dist: " << dists[layer][1]
           << ", error_signals_dist: " << dists[layer][2]
-          << ", prev_error_signals_dist: " << dists[layer][3]
-          << "\n";
+          << ", prev_error_signals_dist: " << dists[layer][3];
     } else {
       dc::MPIRootPrintStreamInfo()
-          << layer->get_name() << "; distconv disabled\n";
+          << layer->get_name() << "; distconv disabled";
     }
   }
-  for (auto it = m_layers.rbegin(); it != m_layers.rend(); ++it) {  
+  for (auto it = m_layers.rbegin(); it != m_layers.rend(); ++it) {
     (*it)->setup_tensor_distribution_block();
   }
   for (const auto& layer : m_layers) {
     layer->setup_tensors_fwd(dists[layer]);
   }
-  for (auto it = m_layers.rbegin(); it != m_layers.rend(); ++it) {  
+  for (auto it = m_layers.rbegin(); it != m_layers.rend(); ++it) {
     (*it)->setup_tensors_bwd(dists[*it]);
   }
 }
-#endif    
+#endif
 
 }  // namespace lbann

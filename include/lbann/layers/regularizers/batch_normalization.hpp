@@ -194,7 +194,7 @@ class batch_normalization_layer : public regularizer_layer {
         std::cerr << err.str() << std::endl;
       }
     }
-    
+
     // Initialize default weights if none are provided
     if (this->m_weights.size() > 4) {
       std::stringstream err;
@@ -316,7 +316,7 @@ class batch_normalization_layer : public regularizer_layer {
     split_shape[-2] = pc;
     shared_dist.set_split_shape(split_shape);
 
-    const dc::LocaleMPI loc(m_comm->get_model_comm().comm, false);    
+    const dc::LocaleMPI loc(m_comm->get_model_comm().comm, false);
 
     // mean
     m_mean_t = dc::TensorDev(per_channel_stat_shape, loc, shared_dist);
