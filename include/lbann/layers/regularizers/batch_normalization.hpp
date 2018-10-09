@@ -299,6 +299,9 @@ class batch_normalization_layer : public regularizer_layer {
   dc::TensorDev m_scale_gradient_t;
   dc::TensorDev m_bias_gradient_t;
 
+  dc::LocaleMPI m_spatial_loc;
+  El::mpi::Comm m_spatial_comm;
+
   void setup_tensors_fwd(const std::array<dc::Dist, 4> &dists) override {
     Layer::setup_tensors_fwd(dists);
     if (!distconv_enabled()) return;
@@ -321,7 +324,7 @@ class batch_normalization_layer : public regularizer_layer {
     split_shape[-2] = pc;
     shared_dist.set_split_shape(split_shape);
 
-    const dc::LocaleMPI loc(m_comm->get_model_comm().comm, false);
+    const dc::LocaleMPI loc(dc::get_mpi_comm(), false);
 
     // mean
     m_mean_t = dc::TensorDev(per_channel_stat_shape, loc, shared_dist);
@@ -356,6 +359,10 @@ class batch_normalization_layer : public regularizer_layer {
 
     // spatial decomposition requires global communication
     // m_use_global_stats = true;
+    if (dc::use_partial_aggregation_in_bn()) {
+      m_spatial_loc = m_mean_t.get_spatial_locale();
+      m_spatial_comm = m_spatial_loc.get_comm();
+    }
   }
 
   void setup_tensors_bwd(const std::array<dc::Dist, 4> &dists) override {
@@ -366,9 +373,18 @@ class batch_normalization_layer : public regularizer_layer {
     setup_error_signals_tensor(dists);
     setup_error_signals_copyout_tensor(dists);
 
+    dc::tensor::Array<4, bool> reduced_dims(false);
+    if (m_use_global_stats) {
+      reduced_dims = true;
+    } else if (dc::use_partial_aggregation_in_bn()) {
+      for (int i = 0; i < dc::TensorDev::num_spatial_dims; ++i) {
+        reduced_dims[i] = true;
+      }
+    }
+
     m_bn = new dc::BatchNormalization(
         dc::get_backend(), m_decay, m_epsilon,
-        m_use_global_stats);
+        reduced_dims);
 
     dc::MPIPrintStreamDebug()
         << "BN prev_error_signals: " << m_prev_error_signals_t
