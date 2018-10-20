@@ -35,7 +35,13 @@
 #include "nvToolsExtCuda.h"
 #include "nvToolsExtCudaRt.h"
 #include "cuda_runtime.h"
+#include "cuda_profiler_api.h"
+#include "lbann/utils/cuda.hpp"
 #endif
+
+namespace {
+bool profiling_started = false;
+}
 
 namespace lbann {
 
@@ -49,7 +55,16 @@ void prof_region_end(const char *s, bool) {
   return;
 }
 #elif defined(LBANN_NVPROF)
+void prof_start() {
+  CHECK_CUDA(cudaProfilerStart());
+  profiling_started = true;
+}
+void prof_stop() {
+  CHECK_CUDA(cudaProfilerStop());
+  profiling_started = false;
+}
 void prof_region_begin(const char *s, int c, bool sync) {
+  if (!profiling_started) return;
   if (sync) {
     El::GPUManager::SynchronizeDevice();
   }
@@ -66,6 +81,7 @@ void prof_region_begin(const char *s, int c, bool sync) {
   nvtxRangePushEx(&ev);
 }
 void prof_region_end(const char *, bool sync) {
+  if (!profiling_started) return;  
   if (sync) {
     El::GPUManager::SynchronizeDevice();
   }
