@@ -41,6 +41,7 @@ const int lbann_default_random_seed = 42;
 
 
 int main(int argc, char *argv[]) {
+  std::cerr << "Starting LBANN" << std::endl;
   int random_seed = lbann_default_random_seed;
   lbann_comm *comm = initialize(argc, argv, random_seed);
   bool master = comm->am_world_master();
@@ -129,7 +130,7 @@ int main(int argc, char *argv[]) {
     if (procs_per_model == 0) {
       procs_per_model = comm->get_procs_in_world();
     }
-    comm->split_models(procs_per_model);
+    //comm->split_models(procs_per_model);
     if (pb_model->num_parallel_readers() > procs_per_model) {
       pb_model->set_num_parallel_readers(procs_per_model);
     }
