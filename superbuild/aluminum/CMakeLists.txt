@@ -11,8 +11,8 @@ else ()
     CACHE STRING "The URL from which to clone Aluminum")
 endif ()
 
-set(Aluminum_TAG
-  "master"
+set(Aluminum_TAG #"master"
+  "1ae1e01742e6d861699797690f94df1f57f8551f"
   CACHE STRING "The git tag to checkout for Aluminum")
 
 set(Aluminum_CMAKE_BUILD_TYPE "${CMAKE_BUILD_TYPE}"
