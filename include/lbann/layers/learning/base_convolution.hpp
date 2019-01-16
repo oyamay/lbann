@@ -607,7 +607,7 @@ class base_convolution_layer : public learning_layer {
                                                            workspace_size,
                                                            &transposed_convolution_cudnn_algorithm));
 #else
-      cudnnConvolutionBwdDataAlgo_t transposed_convolution_cudnn_algorithm
+      transposed_convolution_cudnn_algorithm
           = CUDNN_CONVOLUTION_BWD_DATA_ALGO_1;
 #endif
 #ifdef LBANN_HAS_DISTCONV
