@@ -39,9 +39,11 @@
 #include "lbann/utils/cuda.hpp"
 #endif
 
+#ifdef LBANN_NVPROF
 namespace {
 bool profiling_started = false;
 }
+#endif
 
 namespace lbann {
 
@@ -88,12 +90,10 @@ void prof_region_end(const char *, bool sync) {
   nvtxRangePop();
 }
 #else
-void prof_region_begin(const char *, int, bool) {
-  return;
-}
-void prof_region_end(const char *, bool) {
-  return;
-}
+void prof_start() {}
+void prof_stop() {}
+void prof_region_begin(const char *, int, bool) {}
+void prof_region_end(const char *, bool) {}
 #endif
 
 }  // namespace lbann

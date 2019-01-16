@@ -52,6 +52,10 @@ option(LBANN_SB_BUILD_PROTOBUF "Pull and build Google Protobuf from Github" OFF)
 
 option(LBANN_SB_BUILD_LBANN "Pull and build LBANN from Github" OFF)
 
+# Distconv packages
+option(LBANN_SB_BUILD_P2P "Pull and build P2P from Github" OFF)
+option(LBANN_SB_BUILD_DISTCONV "Pull and build Distconv from Github" OFF)
+
 #
 # Add the TPL subdirectories
 #
@@ -70,6 +74,16 @@ endif ()
 if (LBANN_SB_BUILD_CUB)
   add_subdirectory(cub)
   list(APPEND _BUILD_PKGS cub)
+endif ()
+
+# Distconv
+if (LBANN_SB_BUILD_P2P)
+  add_subdirectory(p2p)
+  list(APPEND _BUILD_PKGS P2P)
+endif ()
+if (LBANN_SB_BUILD_DISTCONV)
+  add_subdirectory(distconv)
+  list(APPEND _BUILD_PKGS DISTCONV)
 endif ()
 
 # Elemental is *SO* complicated.
