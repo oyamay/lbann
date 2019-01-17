@@ -85,8 +85,7 @@ endif ()
 
 # ... then the tag.
 set(Hydrogen_TAG
-    "hydrogen"
-    #"lazy-comm-init"
+  "hydrogen"
   CACHE STRING "The git tag or hash to checkout for Hydrogen")
 
 include(ExternalProject)
