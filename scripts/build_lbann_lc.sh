@@ -444,10 +444,9 @@ if [ "${BUILD_TYPE}" == "Release" ]; then
             CXX_FLAGS="${CXX_FLAGS} -mcpu=power8 -mtune=power8"
             Fortran_FLAGS="${Fortran_FLAGS} -mcpu=power8 -mtune=power8"
         elif [ "${CLUSTER}" == "sierra" -o "${CLUSTER}" == "lassen" ]; then
-			# no power9 option shown in the manual
-            C_FLAGS="${C_FLAGS} -mcpu=power8 -mtune=power8"
-            CXX_FLAGS="${CXX_FLAGS} -mcpu=power8 -mtune=power8"
-            Fortran_FLAGS="${Fortran_FLAGS} -mcpu=power8 -mtune=power8"
+            C_FLAGS="${C_FLAGS} -mcpu=power9 -mtune=power9"
+            CXX_FLAGS="${CXX_FLAGS} -mcpu=power9 -mtune=power9"
+            Fortran_FLAGS="${Fortran_FLAGS} -mcpu=power9 -mtune=power9"
         fi
     fi
 else
