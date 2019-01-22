@@ -129,7 +129,8 @@ int main(int argc, char *argv[]) {
     if (procs_per_model == 0) {
       procs_per_model = comm->get_procs_in_world();
     }
-    comm->split_models(procs_per_model);
+    // Still hangs with MPI_Bcast
+    //comm->split_models(procs_per_model);
     if (pb_model->num_parallel_readers() > procs_per_model) {
       pb_model->set_num_parallel_readers(procs_per_model);
     }
