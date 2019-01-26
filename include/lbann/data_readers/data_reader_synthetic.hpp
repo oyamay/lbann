@@ -55,7 +55,7 @@ class data_reader_synthetic : public generic_data_reader {
   }
 
   void load() override;
-  
+
   int get_linearized_data_size() const override {
     return std::accumulate(m_dimensions.begin(), m_dimensions.end(), 1,
                            std::multiplies<int>());
@@ -79,6 +79,8 @@ class data_reader_synthetic : public generic_data_reader {
   bool fetch_datum(CPUMat& X, int data_id, int mb_idx, int tid) override;
   bool fetch_label(CPUMat& Y, int data_id, int mb_idx, int tid) override;
   bool fetch_response(CPUMat& Y, int data_id, int mb_idx, int tid) override;
+  void pre_generate();
+  DataType *get_next_pre_generated_datum();
 
  private:
   /** Number of samples in the dataset. */
@@ -89,6 +91,12 @@ class data_reader_synthetic : public generic_data_reader {
   std::vector<int> m_dimensions;
   /** Shape of the responses. */
   std::vector<int> m_response_dimensions;
+  /** Number of pre-generated data */
+  int m_num_pre_generated_data = 0;
+  /** Index to the next pre-generated data */
+  int m_pre_generated_data_idx = 0;
+  /** Buffer to hold pre-generated data */
+  std::shared_ptr<DataType> m_pre_generated_data;
 };
 
 }  // namespace lbann
