@@ -501,11 +501,11 @@ _generate_classes_from_message(Callback, lbann_pb2.Callback)
 
 def save_model(filename, mini_batch_size, epochs,
                layers, weights=[], objective_function=None,
-               metrics=[], callbacks=[]):
+               metrics=[], callbacks=[], **kwargs):
     """Save a model to file."""
 
     # Initialize protobuf message
-    pb = lbann_pb2.LbannPB()
+    pb = lbann_pb2.LbannPB(**kwargs)
     pb.model.mini_batch_size = mini_batch_size
     pb.model.num_epochs = epochs
     pb.model.block_size = 256           # TODO: Make configurable.
