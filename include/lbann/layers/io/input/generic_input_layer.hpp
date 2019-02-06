@@ -266,7 +266,7 @@ class generic_input_layer : public io_layer {
       throw lbann_exception(err.str());
     }
     //std::cerr << "Confine load imbalance due to I/O within the I/O layer\n";
-    MPI_Barrier(this->get_comm()->get_model_comm().comm);
+    MPI_Barrier(this->get_comm()->get_model_comm().GetMPIComm());
   }
 
   /**
