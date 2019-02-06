@@ -29,6 +29,8 @@
 #include "lbann/utils/protobuf_utils.hpp"
 #include "lbann/proto/proto_common.hpp"
 
+#include <google/protobuf/util/field_mask_util.h>
+
 /**
  * all methods in protobuf_utils are static
  */
@@ -153,17 +155,35 @@ void protobuf_utils::read_in_prototext_files(
     if (t.reader != "none") {
       lbann_data::LbannPB p;
       read_prototext_file(t.reader.c_str(), p, master);
-      pb->MergeFrom(p);
+      google::protobuf::FieldMask mask;
+      mask.add_paths("reader");
+      google::protobuf::util::FieldMaskUtil::MergeMessageTo(
+        p, mask,
+        google::protobuf::util::FieldMaskUtil::MergeOptions(),
+        pb
+      );
     }
     if (t.data_set_metadata != "none") {
       lbann_data::LbannPB p;
       read_prototext_file(t.data_set_metadata.c_str(), p, master);
-      pb->MergeFrom(p);
+      google::protobuf::FieldMask mask;
+      mask.add_paths("data_set_metadata");
+      google::protobuf::util::FieldMaskUtil::MergeMessageTo(
+        p, mask,
+        google::protobuf::util::FieldMaskUtil::MergeOptions(),
+        pb
+      );
     }
     if (t.optimizer != "none") {
       lbann_data::LbannPB p;
       read_prototext_file(t.optimizer.c_str(), p, master);
-      pb->MergeFrom(p);
+      google::protobuf::FieldMask mask;
+      mask.add_paths("optimizer");
+      google::protobuf::util::FieldMaskUtil::MergeMessageTo(
+        p, mask,
+        google::protobuf::util::FieldMaskUtil::MergeOptions(),
+        pb
+      );
     }
     models_out.push_back(pb);
   }
