@@ -30,6 +30,8 @@
 #include "lbann/proto/proto_common.hpp"
 
 #include <google/protobuf/util/field_mask_util.h>
+using google::protobuf::FieldMask;
+using google::protobuf::util::FieldMaskUtil;
 
 /**
  * all methods in protobuf_utils are static
@@ -150,40 +152,34 @@ void protobuf_utils::read_in_prototext_files(
   models_out.clear();
   for (auto t : names) {
     lbann_data::LbannPB *pb = new lbann_data::LbannPB;
-    if (t.model != "none")
-      read_prototext_file(t.model.c_str(), *pb, master);
+    const auto mergeOpts = FieldMaskUtil::MergeOptions();
+    if (t.model != "none") {
+      lbann_data::LbannPB p;
+      read_prototext_file(t.model.c_str(), p, master);
+      FieldMask mask;
+      mask.add_paths("model");
+      FieldMaskUtil::MergeMessageTo(p, mask, mergeOpts, pb);
+    }
     if (t.reader != "none") {
       lbann_data::LbannPB p;
       read_prototext_file(t.reader.c_str(), p, master);
-      google::protobuf::FieldMask mask;
+      FieldMask mask;
       mask.add_paths("reader");
-      google::protobuf::util::FieldMaskUtil::MergeMessageTo(
-        p, mask,
-        google::protobuf::util::FieldMaskUtil::MergeOptions(),
-        pb
-      );
+      FieldMaskUtil::MergeMessageTo(p, mask, mergeOpts, pb);
     }
     if (t.data_set_metadata != "none") {
       lbann_data::LbannPB p;
       read_prototext_file(t.data_set_metadata.c_str(), p, master);
-      google::protobuf::FieldMask mask;
+      FieldMask mask;
       mask.add_paths("data_set_metadata");
-      google::protobuf::util::FieldMaskUtil::MergeMessageTo(
-        p, mask,
-        google::protobuf::util::FieldMaskUtil::MergeOptions(),
-        pb
-      );
+      FieldMaskUtil::MergeMessageTo(p, mask, mergeOpts, pb);
     }
     if (t.optimizer != "none") {
       lbann_data::LbannPB p;
       read_prototext_file(t.optimizer.c_str(), p, master);
-      google::protobuf::FieldMask mask;
+      FieldMask mask;
       mask.add_paths("optimizer");
-      google::protobuf::util::FieldMaskUtil::MergeMessageTo(
-        p, mask,
-        google::protobuf::util::FieldMaskUtil::MergeOptions(),
-        pb
-      );
+      FieldMaskUtil::MergeMessageTo(p, mask, mergeOpts, pb);
     }
     models_out.push_back(pb);
   }
