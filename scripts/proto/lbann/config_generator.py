@@ -13,7 +13,7 @@ def generate_config(model, data_reader, optimizer):
     with `parse_known_args`:
     ```
     import argparse
-    import lbann.prototext_generator as lpg
+    import lbann.config_generator as lcg
 
     if __name__ == "__main__":
         parser = argparse.ArgumentParser()
@@ -21,7 +21,7 @@ def generate_config(model, data_reader, optimizer):
             "--model-arg", action="store", type=int)
         args,_ = parser.parse_known_args()
 
-        lpg.save_prototext(
+        lcg.save_prototext(
             create_model(args.model_arg),
             create_data_reader(),
             create_optimizer())
