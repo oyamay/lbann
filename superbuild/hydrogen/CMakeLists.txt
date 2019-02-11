@@ -80,15 +80,13 @@ if (Hydrogen_CLONE_VIA_SSH)
     CACHE STRING "The URL from which to clone Hydrogen")
 else ()
   set(Hydrogen_URL 
-      # "https://github.com/LLNL/Elemental.git"
-      "https://github.com/benson31/Elemental.git"
+    "https://github.com/LLNL/Elemental.git"
     CACHE STRING "The URL from which to clone Hydrogen")
 endif ()
 
 # ... then the tag.
 set(Hydrogen_TAG
-    #"hydrogen"
-  "feature-mpi-overhaul"
+  "hydrogen"
   CACHE STRING "The git tag or hash to checkout for Hydrogen")
 
 include(ExternalProject)

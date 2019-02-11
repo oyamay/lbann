@@ -195,12 +195,12 @@ include(SetupCXX)
 # Required dependencies
 
 # Setup the linear algebra library
-find_package(Hydrogen 1.1.0 NO_MODULE
+find_package(Hydrogen 1.2.0 NO_MODULE
   HINTS ${Hydrogen_DIR} ${HYDROGEN_DIR} $ENV{Hydrogen_DIR} $ENV{HYDROGEN_DIR}
   PATH_SUFFIXES lib/cmake/hydrogen
   NO_DEFAULT_PATH)
 if (NOT Hydrogen_FOUND)
-  find_package(Hydrogen 1.1.0 NO_MODULE REQUIRED)
+  find_package(Hydrogen 1.2.0 NO_MODULE REQUIRED)
 endif ()
 set(LBANN_HAS_HYDROGEN ${Hydrogen_FOUND})
 
