@@ -26,7 +26,8 @@ def _get_time_axis(time_list, units='hours'):
     return time_axis
 
 def plot(stat_path_list, stat_name_list, ind_var='time', time_units='hours',
-         plot_accuracy=True, merge_train_val=False, pretty_ylim=True, save_fig=None, save_csv=None, ylim=None,
+         plot_accuracy=True, merge_train_val=False, pretty_ylim=True,
+         no_fig=False, save_fig=None, save_csv=None, ylim=None,
          test_loss=False):
     """Tabulate and plot stats from LBANN or PyTorch training in common format."""
 
@@ -214,10 +215,10 @@ def plot(stat_path_list, stat_name_list, ind_var='time', time_units='hours',
     # plt.legend(loc=(0.25, 1.22))
     plt.legend()
 
-    if save_fig is None:
+    if save_fig is None and no_fig == False:
         # Show the plot
         plt.show()
-    else:
+    elif save_fig:
         plt.savefig(save_fig)
 
     if save_csv is not None:
