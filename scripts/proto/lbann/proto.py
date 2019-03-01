@@ -506,7 +506,7 @@ class Model:
 
     def __init__(self, mini_batch_size, epochs,
                  layers, weights=[], objective_function=None,
-                 metrics=[], callbacks=[]):
+                 metrics=[], callbacks=[], data_layout=None):
         self.mini_batch_size = mini_batch_size
         self.epochs = epochs
         self.layers = layers
@@ -514,6 +514,7 @@ class Model:
         self.objective_function = objective_function
         self.metrics = metrics
         self.callbacks = callbacks
+        self.data_layout = data_layout
 
     def export_proto(self):
         """Construct and return a protobuf message."""
@@ -524,6 +525,8 @@ class Model:
         model.block_size = 256           # TODO: Make configurable.
         model.num_parallel_readers = 0   # TODO: Make configurable
         model.procs_per_trainer = 0      # TODO: Make configurable
+        if self.data_layout is not None:
+            model.data_layout = self.data_layout
 
         # Add layers
         layers = list(traverse_layer_graph(self.layers))
@@ -543,6 +546,7 @@ class Model:
         # Add metrics and callbacks
         model.metric.extend([m.export_proto() for m in self.metrics])
         model.callback.extend([c.export_proto() for c in self.callbacks])
+
 
         return model
 
