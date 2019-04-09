@@ -202,23 +202,23 @@ void init_data_readers(lbann_comm *comm, const lbann_data::LbannPB& p, std::map<
       if(!endsWith(filedir, "/")) {
         filedir = filedir + "/";
       }
-      auto dirname = filedir + readme.data_file_pattern();
+      auto pattern = readme.data_file_pattern();
       { // Replace ${*} with the corresponding environemnt variable
-       std::regex re("(.*)\\$\\{([^}]+)\\}(.*)");
-       std::smatch match;
-       while(regex_match(dirname, match, re)) {
-         const std::string head    = match[1];
-         const std::string envname = match[2];
-         const std::string tail    = match[3];
-         const char *env = std::getenv(envname.c_str());
-         assert(c != nullptr);
-         dirname = head + std::string(env) + tail;
-         if(master) {
-           std::cout << "dirname: " << dirname << std::endl;
-         }
-       }
+        std::regex re("(.*)\\$\\{([^}]+)\\}(.*)");
+        std::smatch match;
+        while(regex_match(pattern, match, re)) {
+          const std::string head    = match[1];
+          const std::string envname = match[2];
+          const std::string tail    = match[3];
+          const char *env = std::getenv(envname.c_str());
+          assert(c != nullptr);
+          pattern = head + std::string(env) + tail;
+        }
+        if(master) {
+          std::cout << "data_file_pattern: " << pattern << std::endl;
+        }
       }
-      const auto paths = glob(dirname);
+      const auto paths = glob(filedir + pattern);
       reader_cosmoflow->set_npz_paths(paths);
       reader_cosmoflow->set_scaling_factor_int16(readme.scaling_factor_int16());
       reader = reader_cosmoflow;
