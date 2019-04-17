@@ -140,23 +140,24 @@ std::pair<cnpy::NpyArray, int> cosmoflow_reader::prepare_npz_file(const int data
 bool cosmoflow_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
   prof_region_begin("fetch_datum", prof_colors[0], false);
 
-  auto data_offset = prepare_npz_file(data_id, NPZ_KEY_DATA);
-  auto data_npy = data_offset.first;
-  const auto offset = data_offset.second;
+  // auto data_offset = prepare_npz_file(data_id, NPZ_KEY_DATA);
+  // auto data_npy = data_offset.first;
+  // const auto offset = data_offset.second;
 
   Mat X_v = El::View(X, El::IR(0, X.Height()), El::IR(mb_idx, mb_idx+1));
 
   // Convert int16 to DataType.
-  const short *data = data_npy.data<short>() + (size_t) offset * m_num_features;
+  // const short *data = data_npy.data<short>() + (size_t) offset * m_num_features;
   DataType *dest = X_v.Buffer();
 
 #ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
-  std::memcpy(dest, data, sizeof(short) * m_num_features);
+  // std::memcpy(dest, data, sizeof(short) * m_num_features);
+  std::memset(dest, 0, sizeof(short) * m_num_features);
 #else
-  // OPTIMIZE
-  LBANN_OMP_PARALLEL_FOR
-      for(int j = 0; j < m_num_features; j++)
-        dest[j] = data[j] * m_scaling_factor_int16;
+  // // OPTIMIZE
+  // LBANN_OMP_PARALLEL_FOR
+  //     for(int j = 0; j < m_num_features; j++)
+  //       dest[j] = data[j] * m_scaling_factor_int16;
 #endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   prof_region_end("fetch_datum", false);
   return true;
@@ -164,25 +165,27 @@ bool cosmoflow_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
 
 bool cosmoflow_reader::fetch_response(Mat& Y, int data_id, int mb_idx) {
   prof_region_begin("fetch_response", prof_colors[0], false);
-  auto data_offset = prepare_npz_file(data_id, NPZ_KEY_RESPONSES);
-  auto data = data_offset.first;
-  const auto offset = data_offset.second;
+  // auto data_offset = prepare_npz_file(data_id, NPZ_KEY_RESPONSES);
+  // auto data = data_offset.first;
+  // const auto offset = data_offset.second;
 
-  void *responses = NULL;
-  if (data.word_size == 4) {
-    responses = (void *) (data.data<float>()
-                          + offset * m_num_response_features);
-  } else if (data.word_size == 8) {
-    responses = (void *) (data.data<double>()
-                          + offset * m_num_response_features);
-  } else {
-    throw lbann_exception(std::string{} + __FILE__ + " " + std::to_string(__LINE__) +
-                          " cosmoflow_reader::fetch_response() - invalid word size : " +
-                          std::to_string(data.word_size));
-  }
+  // void *responses = NULL;
+  // if (data.word_size == 4) {
+  //   responses = (void *) (data.data<float>()
+  //                         + offset * m_num_response_features);
+  // } else if (data.word_size == 8) {
+  //   responses = (void *) (data.data<double>()
+  //                         + offset * m_num_response_features);
+  // } else {
+  //   throw lbann_exception(std::string{} + __FILE__ + " " + std::to_string(__LINE__) +
+  //                         " cosmoflow_reader::fetch_response() - invalid word size : " +
+  //                         std::to_string(data.word_size));
+  // }
   Mat Y_v = El::View(Y, El::IR(0, Y.Height()), El::IR(mb_idx, mb_idx + 1));
-  std::memcpy(Y_v.Buffer(), responses,
-              m_num_response_features * data.word_size);
+  // std::memcpy(Y_v.Buffer(), responses,
+  //             m_num_response_features * data.word_size);
+  std::memset(Y_v.Buffer(), 0,
+              m_num_response_features * 4);
   prof_region_end("fetch_response", false);
   return true;
 }
