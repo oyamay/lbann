@@ -148,11 +148,11 @@ bool cosmoflow_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
 
   // Convert int16 to DataType.
   // const short *data = data_npy.data<short>() + (size_t) offset * m_num_features;
-  DataType *dest = X_v.Buffer();
+  // DataType *dest = X_v.Buffer();
 
 #ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   // std::memcpy(dest, data, sizeof(short) * m_num_features);
-  std::memset(dest, 0, sizeof(short) * m_num_features);
+  // std::memset(dest, 0, sizeof(short) * m_num_features);
 #else
   // // OPTIMIZE
   // LBANN_OMP_PARALLEL_FOR
@@ -184,8 +184,8 @@ bool cosmoflow_reader::fetch_response(Mat& Y, int data_id, int mb_idx) {
   Mat Y_v = El::View(Y, El::IR(0, Y.Height()), El::IR(mb_idx, mb_idx + 1));
   // std::memcpy(Y_v.Buffer(), responses,
   //             m_num_response_features * data.word_size);
-  std::memset(Y_v.Buffer(), 0,
-              m_num_response_features * 4);
+  // std::memset(Y_v.Buffer(), 0,
+  //             m_num_response_features * 4);
   prof_region_end("fetch_response", false);
   return true;
 }
