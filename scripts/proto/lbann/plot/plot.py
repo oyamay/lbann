@@ -55,7 +55,7 @@ def plot(stat_path_list, stat_name_list, ind_var='time', time_units='hours',
         if stat_ext == '.json':
             with open(stat_path, 'r') as fp:
                 d = json.load(fp)
-        elif stat_ext == '.out' or stat_ext == '.txt':
+        elif stat_ext == '.out' or stat_ext == '.txt' or stat_ext == ".log":
             d = parser.parse(stat_path)
             if d is None:
                 print('WARNING: Failed to parse outputs from {}'.format(stat_path))
