@@ -193,6 +193,7 @@ void init_data_readers(
       npz_conduit->set_has_labels(!readme.disable_labels());
       npz_conduit->set_has_responses(!readme.disable_responses());
       npz_conduit->set_scaling_factor_int16(readme.scaling_factor_int16());
+      npz_conduit->set_random_flip_mode(readme.random_flip_mode());
       if (readme.num_labels() != 0) {
         npz_conduit->set_num_labels(readme.num_labels());
       }

@@ -162,13 +162,16 @@ class CosmoFlow(lm.Module):
 
         return x
 
-def create_data_reader(train_path, val_path, test_path):
+def create_data_reader(train_path, val_path, test_path,
+                       train_random_flip_mode):
     readerArgs = []
     for role, data_filename in [("train",    train_path),
                                 ("validate", val_path),
                                 ("test",     test_path)]:
         if not data_filename is None:
-            readerArgs.append({"role": role, "data_filename": data_filename})
+            readerArgs.append({"role": role,
+                               "data_filename": data_filename,
+                               "random_flip_mode": train_random_flip_mode if role == "train" else 0})
 
     readers = []
     for readerArg in readerArgs:
@@ -225,6 +228,9 @@ for role, label, required in [("train", "training",   True),
     parser.add_argument(
             "--{}-path".format(role), type=str, required=required,
             help="Path to {} dataset".format(label), default=None)
+parser.add_argument(
+        "--train-random-flip-mode", action="store", default=0, type=int,
+        help="Random flip mode for the training dataset")
 args = parser.parse_args()
 
 # ----------------------------------
@@ -285,7 +291,8 @@ opt = lbann.Adam(learn_rate=args.learn_rate,
 # Setup data reader
 data_reader_proto = create_data_reader(args.train_path,
                                        args.val_path,
-                                       args.test_path)
+                                       args.test_path,
+                                       args.train_random_flip_mode)
 
 # ----------------------------------
 # Run experiment

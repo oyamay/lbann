@@ -61,6 +61,7 @@ namespace lbann {
   void set_has_responses(bool b) { m_has_responses = b; }
   /// Set a scaling factor for int16 data.
   void set_scaling_factor_int16(DataType s) { m_scaling_factor_int16 = s; }
+  void set_random_flip_mode(int m) { m_random_flip_mode = m; }
 
   void load() override;
 
@@ -99,6 +100,10 @@ namespace lbann {
     // A constant to be multiplied when data is converted
     // from int16 to DataType.
     DataType m_scaling_factor_int16 = 1.0;
+
+    // The least three bits are regarded as flags whether each
+    // dimension is flipped randomly.
+    int m_random_flip_mode = 0;
 
     // fills in: m_num_samples, m_num_features, m_num_response_features,
     // m_data_dims, m_data_word_size, m_response_word_size

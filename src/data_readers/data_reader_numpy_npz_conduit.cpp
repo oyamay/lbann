@@ -71,6 +71,7 @@ void numpy_npz_conduit_reader::copy_members(const numpy_npz_conduit_reader &rhs)
   m_data_word_size = rhs.m_data_word_size;
   m_response_word_size = rhs.m_response_word_size;
   m_scaling_factor_int16 = rhs.m_scaling_factor_int16;
+  m_random_flip_mode = rhs.m_random_flip_mode;
   m_filenames = rhs.m_filenames;
 }
 
@@ -223,16 +224,45 @@ bool numpy_npz_conduit_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
   const char *char_data = node[LBANN_DATA_ID_STR(data_id) + "/data/data"].value();
   char *char_data_2 = const_cast<char*>(char_data);
 
+  const auto shape = node[LBANN_DATA_ID_STR(data_id) + "/data/shape"].as_uint64_array();
+  if(shape.number_of_elements() != 5)
+    LBANN_ERROR("Only 5D tensors are supported.");
+  const auto least_dimension = shape[4];
+  const auto spatial_dimension = shape[2]*shape[3]*shape[4];
+
   if (m_data_word_size == 2) {
     // Convert int16 to DataType.
     short *data = reinterpret_cast<short*>(char_data_2);
     DataType *dest = X_v.Buffer();
 
+    const bool flip = rand()&1;
+
     // OPTIMIZE
-    LBANN_OMP_PARALLEL_FOR
-      for(int j = 0; j < m_num_features; j++) {
-        dest[j] = data[j] * m_scaling_factor_int16;
-      }
+    if(m_random_flip_mode == 0 || !flip) {
+      LBANN_OMP_PARALLEL_FOR
+          for(int j = 0; j < m_num_features; j++) {
+            dest[j] = data[j] * m_scaling_factor_int16;
+          }
+
+    } else if(m_random_flip_mode == 1) {
+      LBANN_OMP_PARALLEL_FOR
+          for(int j = 0; j < m_num_features; j++) {
+            const int mod = j%least_dimension;
+            const int idx = (j-mod) + least_dimension-1 - mod;
+            dest[j] = data[idx] * m_scaling_factor_int16;
+          }
+
+    } else if(m_random_flip_mode == 7) {
+      LBANN_OMP_PARALLEL_FOR
+          for(int j = 0; j < m_num_features; j++) {
+            const int mod = j%spatial_dimension;
+            const int idx = (j-mod) + spatial_dimension-1 - mod;
+            dest[j] = data[idx] * m_scaling_factor_int16;
+          }
+
+    } else {
+      LBANN_ERROR("Invalid random flip mode: " + std::to_string(m_random_flip_mode));
+    }
 
   } else {
     void *data = (void*)char_data_2;
