@@ -513,7 +513,8 @@ class Model:
 
     def __init__(self, mini_batch_size, epochs,
                  layers, weights=[], objective_function=None,
-                 metrics=[], callbacks=[], num_parallel_readers=0):
+                 metrics=[], callbacks=[], num_parallel_readers=0,
+                 random_seed=None):
         self.mini_batch_size = mini_batch_size
         self.epochs = epochs
         self.layers = layers
@@ -522,6 +523,7 @@ class Model:
         self.metrics = metrics
         self.callbacks = callbacks
         self.num_parallel_readers = num_parallel_readers
+        self.random_seed = random_seed
 
     def export_proto(self):
         """Construct and return a protobuf message."""
@@ -532,6 +534,8 @@ class Model:
         model.block_size = 256           # TODO: Make configurable.
         model.num_parallel_readers = self.num_parallel_readers
         model.procs_per_trainer = 0      # TODO: Make configurable
+        if self.random_seed is not None:
+            model.random_seed = self.random_seed
 
         # Add layers
         layers = list(traverse_layer_graph(self.layers))
