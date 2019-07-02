@@ -227,41 +227,42 @@ bool numpy_npz_conduit_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
   const auto shape = node[LBANN_DATA_ID_STR(data_id) + "/data/shape"].as_uint64_array();
   if(shape.number_of_elements() != 5)
     LBANN_ERROR("Only 5D tensors are supported.");
-  const auto least_dimension = shape[4];
-  const auto spatial_dimension = shape[2]*shape[3]*shape[4];
 
   if (m_data_word_size == 2) {
     // Convert int16 to DataType.
     short *data = reinterpret_cast<short*>(char_data_2);
     DataType *dest = X_v.Buffer();
 
-    const bool flip = rand()&1;
+    if(m_random_flip_mode < 0 || m_random_flip_mode >= 8)
+      LBANN_ERROR("Invalid random flip mode: " + std::to_string(m_random_flip_mode));
+    const int flip = rand()&m_random_flip_mode;
 
     // OPTIMIZE
-    if(m_random_flip_mode == 0 || !flip) {
+    if(flip == 0) {
       LBANN_OMP_PARALLEL_FOR
           for(int j = 0; j < m_num_features; j++) {
             dest[j] = data[j] * m_scaling_factor_int16;
           }
 
-    } else if(m_random_flip_mode == 1) {
-      LBANN_OMP_PARALLEL_FOR
-          for(int j = 0; j < m_num_features; j++) {
-            const int mod = j%least_dimension;
-            const int idx = (j-mod) + least_dimension-1 - mod;
-            dest[j] = data[idx] * m_scaling_factor_int16;
-          }
-
-    } else if(m_random_flip_mode == 7) {
-      LBANN_OMP_PARALLEL_FOR
-          for(int j = 0; j < m_num_features; j++) {
-            const int mod = j%spatial_dimension;
-            const int idx = (j-mod) + spatial_dimension-1 - mod;
-            dest[j] = data[idx] * m_scaling_factor_int16;
-          }
-
     } else {
-      LBANN_ERROR("Invalid random flip mode: " + std::to_string(m_random_flip_mode));
+      const int d = shape[2];
+      const int h = shape[3];
+      const int w = shape[4];
+      const int dhw = d*h*w;
+      const int hw = h*w;
+
+      LBANN_OMP_PARALLEL_FOR
+          for(int j = 0; j < m_num_features; j++) {
+            const int wi = j%w;
+            const int hi = (j/w)%h;
+            const int di = (j/hw)%d;
+            const int ci = j/dhw;
+            const int idx = ci*dhw
+                + (((flip>>0)&1) ? di : d-1-di)*hw
+                + (((flip>>1)&1) ? hi : h-1-hi)*w
+                + (((flip>>2)&1) ? wi : w-1-wi);
+            dest[j] = data[idx] * m_scaling_factor_int16;
+          }
     }
 
   } else {
