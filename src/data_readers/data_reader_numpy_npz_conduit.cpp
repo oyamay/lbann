@@ -33,7 +33,7 @@
 #include "lbann/utils/jag_utils.hpp"  // read_filelist(..) TODO should be move to file_utils
 #include "lbann/utils/timer.hpp"
 #include "lbann/models/model.hpp"
-
+#include "lbann/utils/profiling.hpp"
 
 namespace lbann {
 
@@ -144,7 +144,9 @@ void numpy_npz_conduit_reader::preload_data_store() {
     }
 
     conduit::Node node;
+    prof_region_begin("preload_data_store read_npz", prof_colors[5], false);
     numpy_conduit_converter::load_conduit_node(m_filenames[data_id], data_id, node);
+    prof_region_end("preload_data_store read_npz", false);
     const char *char_ptr = node[LBANN_DATA_ID_STR(data_id) + "/frm/data"].value();
     const int* label_ptr = reinterpret_cast<const int*>(char_ptr);
     label_classes.insert(*label_ptr);
@@ -209,15 +211,19 @@ bool numpy_npz_conduit_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
   Mat X_v = El::View(X, El::IR(0, X.Height()), El::IR(mb_idx, mb_idx+1));
   conduit::Node node;
   if (data_store_active()) {
+    prof_region_begin("fetch_datum get_conduit_node", prof_colors[5], false);
     const conduit::Node& ds_node = m_data_store->get_conduit_node(data_id);
     node.set_external(ds_node);
+    prof_region_end("fetch_datum get_conduit_node", false);
   } else {
+    prof_region_begin("fetch_datum read_npz", prof_colors[5], false);
     numpy_conduit_converter::load_conduit_node(m_filenames[data_id], data_id, node);
     //note: if testing, and test set is touched more than once, the following
     //      will through an exception TODO: relook later
     if (priming_data_store() || m_model->get_execution_mode() == execution_mode::testing) {
       m_data_store->set_conduit_node(data_id, node);
     }
+    prof_region_end("fetch_datum read_npz", false);
   }
 
   const char *char_data = node[LBANN_DATA_ID_STR(data_id) + "/data/data"].value();
@@ -231,6 +237,7 @@ bool numpy_npz_conduit_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
     const float stds[] = {6.756270281,5.244487988,3.027853968,1.58000543};
 
     bool normalize = std::getenv("COSMOFLOW_NORMALIZE_INPUT") != nullptr;
+    prof_region_begin("fetch_datum conversion", prof_colors[5], false);
     if (normalize) {
       LBANN_OMP_PARALLEL_FOR
       for(int j = 0; j < m_num_features; j++) {
@@ -243,9 +250,12 @@ bool numpy_npz_conduit_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
         dest[j] = data[j] * m_scaling_factor_int16;
       }
     }
+    prof_region_end("fetch_datum conversion", false);
   } else {
     void *data = (void*)char_data_2;
+    prof_region_begin("fetch_datum memcpy", prof_colors[5], false);
     std::memcpy(X_v.Buffer(), data, m_num_features * m_data_word_size);
+    prof_region_end("fetch_datum memcpy", false);
 
     /*
     // the following is from data_reader_numpy_npz -- I don't think it's necessary
