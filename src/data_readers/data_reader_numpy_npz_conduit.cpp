@@ -291,6 +291,7 @@ bool numpy_npz_conduit_reader::fetch_label(Mat& Y, int data_id, int mb_idx) {
 }
 
 bool numpy_npz_conduit_reader::fetch_response(Mat& Y, int data_id, int mb_idx) {
+  prof_region_begin("fetch_response", prof_colors[5], false);
   if (!m_has_responses) {
     LBANN_ERROR("numpy_npz_conduit_reader: do not have responses");
   }
@@ -336,6 +337,7 @@ bool numpy_npz_conduit_reader::fetch_response(Mat& Y, int data_id, int mb_idx) {
     std::memcpy(Y_v.Buffer(), responses,
                 m_num_response_features * m_response_word_size);
   }
+  prof_region_end("fetch_response", false);
   return true;
 }
 

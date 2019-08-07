@@ -240,6 +240,7 @@ int lbann::generic_data_reader::fetch_labels(CPUMat& Y) {
 }
 
 int lbann::generic_data_reader::fetch_responses(CPUMat& Y) {
+  prof_region_begin("fetch_responses", prof_colors[0], false);
   int loaded_batch_size = get_loaded_mini_batch_size();
   const int end_pos = std::min(static_cast<size_t>(m_current_pos+loaded_batch_size),
                                m_shuffled_indices.size());
@@ -251,6 +252,7 @@ int lbann::generic_data_reader::fetch_responses(CPUMat& Y) {
 
   if(!position_valid()) {
     if(position_is_overrun()) {
+      prof_region_end("fetch_responses", false);
       return 0;
     }else {
       LBANN_ERROR(std::string{} + "generic data reader load error: !position_valid"
@@ -269,6 +271,7 @@ int lbann::generic_data_reader::fetch_responses(CPUMat& Y) {
     }
   }
   if (!error_message.empty()) { LBANN_ERROR(error_message); }
+  prof_region_end("fetch_responses", false);
   return mb_size;
 }
 

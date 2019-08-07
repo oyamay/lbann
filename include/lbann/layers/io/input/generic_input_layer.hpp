@@ -260,6 +260,8 @@ class generic_input_layer : public io_layer {
   }
 
   void fp_compute() override {
+    prof_region_begin("generic_input_layer fp_compute", prof_colors[5], false);
+
     execution_mode mode = this->m_model->get_execution_mode();
 
     increment_active_buffer_idx(mode);
@@ -292,6 +294,8 @@ class generic_input_layer : public io_layer {
         }
     }
 
+    prof_region_begin("generic_input_layer distribute_from_local_matrix", prof_colors[5], false);
+
     if(dynamic_cast<partitioned_io_buffer*>(io_buffer) != nullptr) {
       // Use the predetermined size of the mini-batch to set the current
       // batch size for the neural network
@@ -306,6 +310,8 @@ class generic_input_layer : public io_layer {
     }else {
           LBANN_ERROR("could not fp_compute for I/O layers : encoutered generic_io_buffer type");
     }
+
+    prof_region_end("generic_input_layer distribute_from_local_matrix", false);
 
     m_data_set_processed = io_buffer->update_data_set(get_data_reader(mode), mode);
 
@@ -324,6 +330,8 @@ class generic_input_layer : public io_layer {
       fp_compute_distconv(get_active_buffer_idx(mode) % m_io_buffers.size());
     }
 #endif
+
+    prof_region_end("generic_input_layer fp_compute", false);
   }
 
   void setup_next_io_buffer(generic_io_buffer* io_buffer) {
