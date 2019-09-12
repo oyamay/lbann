@@ -72,13 +72,18 @@ world_comm_ptr initialize(int& argc, char**& argv, int seed = -1);
  */
 void finalize(lbann_comm* comm = nullptr);
 
+using DataTypeIO = short;
+
 // Typedefs for Elemental matrices
 using AbsMat = El::AbstractMatrix<DataType>;
 using CPUMat = El::Matrix<DataType, El::Device::CPU>;
+using CPUMatShort = El::Matrix<short, El::Device::CPU>;
+using CPUMatIO = El::Matrix<DataTypeIO, El::Device::CPU>;
 #ifdef LBANN_HAS_GPU
 using GPUMat = El::Matrix<DataType, El::Device::GPU>;
 #endif // LBANN_HAS_GPU
 using AbsDistMat = El::AbstractDistMatrix<DataType>;
+using AbsDistMatIO = El::AbstractDistMatrix<DataTypeIO>;
 
 // Deprecated typedefs
 /// @todo Remove
@@ -98,6 +103,8 @@ template <El::Device D>
 using StarMat    = El::DistMatrix<DataType, El::STAR, El::STAR, El::ELEMENT, D>;
 template <El::Device D>
 using StarVCMat  = El::DistMatrix<DataType, El::STAR, El::VC  , El::ELEMENT, D>;
+template <El::Device D>
+using StarVCMatIO= El::DistMatrix<DataTypeIO, El::STAR, El::VC  , El::ELEMENT, D>;
 template <El::Device D>
 using VCStarMat  = El::DistMatrix<DataType, El::VC  , El::STAR, El::ELEMENT, D>; /// ColSumStarVCMat
 template <El::Device D>

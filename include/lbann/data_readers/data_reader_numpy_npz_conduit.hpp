@@ -75,9 +75,10 @@ namespace lbann {
   protected:
     void preload_data_store();
 
-    bool fetch_datum(CPUMat& X, int data_id, int mb_idx) override;
+    bool fetch_datum_short(CPUMatShort& X, int data_id, int mb_idx) override;
     bool fetch_label(CPUMat& Y, int data_id, int mb_idx) override;
     bool fetch_response(CPUMat& Y, int data_id, int mb_idx) override;
+    bool is_datum_short() const override { return true; }
 
     /// Number of samples.
     int m_num_samples = 0;

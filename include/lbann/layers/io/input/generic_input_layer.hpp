@@ -58,6 +58,8 @@ class generic_input_layer : public io_layer {
               data_reader_target_mode dr_mode = data_reader_target_mode::CLASSIFICATION)
     : io_layer(comm, data_set_spans_models, dr_mode),
       m_io_buffers(),
+      m_io_activation_data(),
+      m_io_activation_responses(),
       m_training_dataset(),
       m_testing_dataset(),
       m_validation_dataset(),
@@ -115,6 +117,14 @@ class generic_input_layer : public io_layer {
     for (auto& dr : m_data_readers) {
       dr.second = dr.second->copy();
     }
+    if(other.m_io_activation_data)
+      m_io_activation_data.reset(other.m_io_activation_data->Copy());
+    else
+      m_io_activation_data = nullptr;
+    if(other.m_io_activation_responses)
+      m_io_activation_responses.reset(other.m_io_activation_responses->Copy());
+    else
+      m_io_activation_responses = nullptr;
   }
 
   generic_input_layer& operator=(const generic_input_layer& other) {
@@ -125,6 +135,14 @@ class generic_input_layer : public io_layer {
     for (auto& dr : m_data_readers) {
       dr.second = dr.second->copy();
     }
+    if(other.m_io_activation_data)
+      m_io_activation_data.reset(other.m_io_activation_data->Copy());
+    else
+      m_io_activation_data = nullptr;
+    if(other.m_io_activation_responses)
+      m_io_activation_responses.reset(other.m_io_activation_responses->Copy());
+    else
+      m_io_activation_responses = nullptr;
     return *this;
   }
 
@@ -156,6 +174,19 @@ class generic_input_layer : public io_layer {
       auto& output = get_activations(i);
       output.Resize(output.Height(), max_mb_size);
     }
+
+    assert(m_io_activation_data == nullptr); // REVIEW
+
+    // TAbsDistMat
+    m_io_activation_data = construct_matrix_t<AbsDistMatIO>(m_comm->get_trainer_grid(), "output", 0);
+    m_io_activation_responses = construct_matrix(m_comm->get_trainer_grid(), "output", 1);
+
+    // Setup I/O activations
+    m_io_activation_data->Resize(get_activations(0).Height(),
+                                 get_activations(0).Width());
+    if(get_num_children() >= 2)
+      m_io_activation_responses->Resize(get_activations(1).Height(),
+                                        get_activations(1).Width());
 
     auto num_io_threads = this->m_model->get_io_thread_pool()->get_num_threads();
     /// BVE FIXME foreach data reader
@@ -299,9 +330,9 @@ class generic_input_layer : public io_layer {
 
       update_num_samples_processed(num_samples_in_batch);
       if(m_expected_num_child_layers == 1) {
-        io_buffer->distribute_from_local_matrix(get_data_reader(), mode, get_activations(0));
+        io_buffer->distribute_from_local_matrix(get_data_reader(), mode, *m_io_activation_data);
       }else {
-        io_buffer->distribute_from_local_matrix(get_data_reader(), mode, get_activations(0), get_activations(1));
+        io_buffer->distribute_from_local_matrix(get_data_reader(), mode, *m_io_activation_data, *m_io_activation_responses);
       }
     }else {
           LBANN_ERROR("could not fp_compute for I/O layers : encoutered generic_io_buffer type");
@@ -914,6 +945,10 @@ class generic_input_layer : public io_layer {
 
  protected:
   std::vector<generic_io_buffer*> m_io_buffers;
+  std::unique_ptr<AbsDistMatIO> m_io_activation_data;
+  std::unique_ptr<AbsDistMat> m_io_activation_responses;
+  // StarVCMatIO<El::Device::CPU> m_io_activation_data;
+  // StarVCMat<El::Device::CPU> m_io_activation_responses;
   io_buffer_map_t m_active_buffer;
 
   dataset m_training_dataset;
@@ -1106,6 +1141,8 @@ class generic_input_layer : public io_layer {
       return;
     }
 
+    assert(!m_background_shuffle); // FIXME
+
     assert_eq(mb_size, get_activations().Width());
     input_view.set_outermost_dimension(mb_size);
     input_tensor.set_outermost_dimension(mb_size);
@@ -1114,12 +1151,12 @@ class generic_input_layer : public io_layer {
 #ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     assert0(dc::tensor::View(
         input_view,
-        reinterpret_cast<const InputType*>(
-            get_activations().LockedBuffer())));
+        m_io_activation_data->LockedBuffer()));
 #else
+#error // FIXME
     assert0(dc::tensor::View(
         input_view,
-        get_activations().LockedBuffer()));
+        m_io_activation_data->LockedBuffer()));
 #endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 
     dc::MPIPrintStreamDebug()
@@ -1176,13 +1213,13 @@ class generic_input_layer : public io_layer {
     dc::MPIPrintStreamDebug()
         << __FUNCTION__ << "; active bufer: "
         << active_buffer << ", mode: " << (int)mode
-        << ", input shape: " << buf->m_input_buffers[0]->LocalHeight()
-        << "x" << buf->m_input_buffers[0]->LocalWidth();
+        << ", input shape: " << buf->m_input_data_buffer->LocalHeight()
+        << "x" << buf->m_input_data_buffer->LocalWidth();
 
     auto &input_view = m_input_views.at(active_buffer);
     auto &input_tensor = m_input_tensors.at(active_buffer);
 
-    const int mb_size = buf->m_input_buffers[0]->Width();
+    const int mb_size = buf->m_input_data_buffer->Width();
     input_view.set_outermost_dimension(mb_size);
     input_tensor.set_outermost_dimension(mb_size);
 
@@ -1190,12 +1227,11 @@ class generic_input_layer : public io_layer {
 #ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     assert0(dc::tensor::View(
         input_view,
-        reinterpret_cast<const InputType*>(
-            buf->m_input_buffers[0]->LockedBuffer())));
+        buf->m_input_data_buffer->LockedBuffer()));
 #else
     assert0(dc::tensor::View(
         input_view,
-        buf->m_input_buffers[0]->LockedBuffer()));
+        buf->m_input_data_buffer->LockedBuffer()));
 #endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 
     dc::MPIPrintStreamDebug()

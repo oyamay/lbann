@@ -205,8 +205,8 @@ void numpy_npz_conduit_reader::preload_data_store() {
   }
 }
 
-bool numpy_npz_conduit_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
-  Mat X_v = El::View(X, El::IR(0, X.Height()), El::IR(mb_idx, mb_idx+1));
+bool numpy_npz_conduit_reader::fetch_datum_short(CPUMatShort& X, int data_id, int mb_idx) {
+  CPUMatShort X_v = El::View(X, El::IR(0, X.Height()), El::IR(mb_idx, mb_idx+1));
   conduit::Node node;
   if (data_store_active()) {
     const conduit::Node& ds_node = m_data_store->get_conduit_node(data_id);
@@ -223,30 +223,21 @@ bool numpy_npz_conduit_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
   const char *char_data = node[LBANN_DATA_ID_STR(data_id) + "/data/data"].value();
   char *char_data_2 = const_cast<char*>(char_data);
 
-  if (m_data_word_size == 2) {
-    // Convert int16 to DataType.
-    short *data = reinterpret_cast<short*>(char_data_2);
-    DataType *dest = X_v.Buffer();
-    // OPTIMIZE
+  assert(m_data_word_size == 2);
+  // Convert int16 to DataType.
+  const short *data = reinterpret_cast<short*>(char_data_2);
+  short *dest = X_v.Buffer();
+  // OPTIMIZE
+  if(m_scaling_factor_int16 == 1) {
+    LBANN_OMP_PARALLEL_FOR
+        for(int j = 0; j < m_num_features; j++) {
+          dest[j] = data[j];
+        }
+  } else {
     LBANN_OMP_PARALLEL_FOR
         for(int j = 0; j < m_num_features; j++) {
           dest[j] = data[j] * m_scaling_factor_int16;
         }
-  } else {
-    void *data = (void*)char_data_2;
-    std::memcpy(X_v.Buffer(), data, m_num_features * m_data_word_size);
-
-    /*
-    // the following is from data_reader_numpy_npz -- I don't think it's necessary
-    if (m_data_word_size == 4) {
-      float *f = reinterpret_cast<float*>(char_data_2);
-      data = (void*)(f + data_id * m_num_features);
-    } else if (m_data_word_size == 8) {
-      double *d = reinterpret_cast<double*>(char_data_2);
-      data = (void*)(d + data_id * m_num_features);
-    }
-    std::memcpy(X_v.Buffer(), data, m_num_features * m_data_word_size);
-    */
   }
 
   return true;

@@ -73,14 +73,14 @@ void generic_data_reader::setup(int num_io_threads, std::shared_ptr<thread_pool>
   m_io_thread_pool = io_thread_pool;
 }
 
-
-bool lbann::generic_data_reader::fetch_data_block(CPUMat& X, El::Int thread_id, El::Int mb_size, El::Matrix<El::Int>& indices_fetched) {
+template<typename TMat>
+bool lbann::generic_data_reader::fetch_data_block_t(TMat& X, El::Int thread_id, El::Int mb_size, El::Matrix<El::Int>& indices_fetched) {
   std::string error_message;
   prof_region_begin("fetch_data_block", prof_colors[0], false);
   for (int s = thread_id; s < mb_size; s+=m_io_thread_pool->get_num_threads()) {
     int n = m_current_pos + (s * m_sample_stride);
     int index = m_shuffled_indices[n];
-    bool valid = fetch_datum(X, index, s);
+    bool valid = fetch_datum_t(X, index, s);
     if (!valid) {
       error_message = "invalid datum (index " + std::to_string(index) + ")";
     }
@@ -91,7 +91,9 @@ bool lbann::generic_data_reader::fetch_data_block(CPUMat& X, El::Int thread_id, 
   return true;
 }
 
-int lbann::generic_data_reader::fetch_data(CPUMat& X, El::Matrix<El::Int>& indices_fetched) {
+
+template<typename TMat>
+int lbann::generic_data_reader::fetch_data_t(TMat& X, El::Matrix<El::Int>& indices_fetched) {
   #ifdef DEBUG
   if (m_current_pos == 0) {
     if (is_master()) {
@@ -158,12 +160,12 @@ int lbann::generic_data_reader::fetch_data(CPUMat& X, El::Matrix<El::Int>& indic
       continue;
     }else {
       m_io_thread_pool->submit_job_to_work_group(
-        std::bind(&generic_data_reader::fetch_data_block, this, std::ref(X), t,
+        std::bind(&generic_data_reader::fetch_data_block_t<TMat>, this, std::ref(X), t,
                   mb_size, std::ref(indices_fetched)));
     }
   }
   prof_region_end("fetch_data_submit", false);
-  fetch_data_block(X, m_io_thread_pool->get_local_thread_id(), mb_size, indices_fetched);
+  fetch_data_block_t(X, m_io_thread_pool->get_local_thread_id(), mb_size, indices_fetched);
 
   // Wait for all of the threads to finish
   m_io_thread_pool->finish_work_group();

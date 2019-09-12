@@ -279,7 +279,14 @@ class generic_data_reader {
   virtual std::string get_type() const = 0;
 
   /// Fetch this mini-batch's samples into X.
-  virtual int fetch_data(CPUMat& X, El::Matrix<El::Int>& indices_fetched);
+  template <typename TMat>
+  int fetch_data_t(TMat& X, El::Matrix<El::Int>& indices_fetched);
+  virtual int fetch_data(CPUMat& X, El::Matrix<El::Int>& indices_fetched) {
+    return fetch_data_t(X, indices_fetched);
+  }
+  virtual int fetch_data_short(CPUMatShort& X, El::Matrix<El::Int>& indices_fetched) {
+    return fetch_data_t(X, indices_fetched);
+  }
   /// Fetch this mini-batch's labels into Y.
   virtual int fetch_labels(CPUMat& Y);
   /// Fetch this mini-batch's responses into Y.
@@ -749,7 +756,14 @@ class generic_data_reader {
 
   lbann_comm *m_comm;
 
-  virtual bool fetch_data_block(CPUMat& X, El::Int thread_index, El::Int mb_size, El::Matrix<El::Int>& indices_fetched);
+  template<typename TMat>
+  bool fetch_data_block_t(TMat& X, El::Int thread_index, El::Int mb_size, El::Matrix<El::Int>& indices_fetched);
+  virtual bool fetch_data_block(CPUMat& X, El::Int thread_index, El::Int mb_size, El::Matrix<El::Int>& indices_fetched) {
+    return fetch_data_block_t(X, thread_index, mb_size, indices_fetched);
+  }
+  virtual bool fetch_data_block_short(CPUMatShort& X, El::Int thread_index, El::Int mb_size, El::Matrix<El::Int>& indices_fetched) {
+    return fetch_data_block_t(X, thread_index, mb_size, indices_fetched);
+  }
 
   /**
    * Fetch a single sample into a matrix.
@@ -757,10 +771,22 @@ class generic_data_reader {
    * @param data_id The index of the datum to fetch.
    * @param mb_idx The index within the mini-batch.
    */
+  bool fetch_datum_t(CPUMat& X, int data_id, int mb_idx) {
+    return fetch_datum(X, data_id, mb_idx);
+  }
+  bool fetch_datum_t(CPUMatShort& X, int data_id, int mb_idx) {
+    return fetch_datum_short(X, data_id, mb_idx);
+  }
   virtual bool fetch_datum(CPUMat& X, int data_id, int mb_idx) {
     NOT_IMPLEMENTED("fetch_dataum");
     return false;
   }
+  virtual bool fetch_datum_short(CPUMatShort& X, int data_id, int mb_idx) {
+    NOT_IMPLEMENTED("fetch_dataum_short");
+    return false;
+  }
+
+  virtual bool is_datum_short() const { return false; }
 
   /**
    * Fetch a single label into a matrix.

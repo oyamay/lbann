@@ -771,9 +771,10 @@ void Layer::setup_matrices(const El::Grid& grid) {
   }
 }
 
-std::unique_ptr<AbsDistMat> Layer::construct_matrix(const El::Grid& grid,
-                                                    std::string type,
-                                                    El::Int index) {
+template <typename TAbsDistMat>
+std::unique_ptr<TAbsDistMat> Layer::construct_matrix_t(const El::Grid& grid,
+                                                       std::string type,
+                                                       El::Int index) {
 
   // Choose matrix distribution
   El::Distribution col_dist, row_dist;
@@ -794,9 +795,9 @@ std::unique_ptr<AbsDistMat> Layer::construct_matrix(const El::Grid& grid,
   }
 
   // Construct matrix
-  std::unique_ptr<AbsDistMat> mat;
-  mat.reset(AbsDistMat::Instantiate(grid, 0,
-                                    col_dist, row_dist, wrap, device));
+  std::unique_ptr<TAbsDistMat> mat;
+  mat.reset(TAbsDistMat::Instantiate(grid, 0,
+                                     col_dist, row_dist, wrap, device));
 
 #ifdef LBANN_HAS_GPU
   // Allocate GPU memory with the CUDA API
@@ -807,6 +808,13 @@ std::unique_ptr<AbsDistMat> Layer::construct_matrix(const El::Grid& grid,
 
   return mat;
 }
+
+// template std::unique_ptr<AbsDistMat> Layer::construct_matrix_t(const El::Grid& grid,
+//                                                                std::string type,
+//                                                                El::Int index);
+template std::unique_ptr<AbsDistMatIO> Layer::construct_matrix_t(const El::Grid& grid,
+                                                                 std::string type,
+                                                                 El::Int index);
 
 void Layer::setup_data() {
   // Get mini-batch size
