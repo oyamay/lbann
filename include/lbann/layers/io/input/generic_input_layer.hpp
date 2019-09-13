@@ -1145,7 +1145,6 @@ class generic_input_layer : public io_layer {
         input_view,
         m_io_activation_data->LockedBuffer()));
 #else
-#error // FIXME
     assert0(dc::tensor::View(
         input_view,
         m_io_activation_data->LockedBuffer()));

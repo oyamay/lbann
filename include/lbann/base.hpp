@@ -88,6 +88,7 @@ using CPUMatIO = El::Matrix<DataTypeIO, El::Device::CPU>;
 using GPUMat = El::Matrix<DataType, El::Device::GPU>;
 #endif // LBANN_HAS_GPU
 using AbsDistMat = El::AbstractDistMatrix<DataType>;
+using AbsDistMatShort = El::AbstractDistMatrix<short>;
 using AbsDistMatIO = El::AbstractDistMatrix<DataTypeIO>;
 
 // Deprecated typedefs

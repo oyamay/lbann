@@ -205,8 +205,12 @@ void numpy_npz_conduit_reader::preload_data_store() {
   }
 }
 
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 bool numpy_npz_conduit_reader::fetch_datum_short(CPUMatShort& X, int data_id, int mb_idx) {
-  CPUMatShort X_v = El::View(X, El::IR(0, X.Height()), El::IR(mb_idx, mb_idx+1));
+#else
+bool numpy_npz_conduit_reader::fetch_datum(CPUMat& X, int data_id, int mb_idx) {
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+  CPUMatIO X_v = El::View(X, El::IR(0, X.Height()), El::IR(mb_idx, mb_idx+1));
   conduit::Node node;
   if (data_store_active()) {
     const conduit::Node& ds_node = m_data_store->get_conduit_node(data_id);
@@ -226,7 +230,7 @@ bool numpy_npz_conduit_reader::fetch_datum_short(CPUMatShort& X, int data_id, in
   assert(m_data_word_size == 2);
   // Convert int16 to DataType.
   const short *data = reinterpret_cast<short*>(char_data_2);
-  short *dest = X_v.Buffer();
+  auto *dest = X_v.Buffer();
   // OPTIMIZE
   if(m_scaling_factor_int16 == 1) {
     LBANN_OMP_PARALLEL_FOR

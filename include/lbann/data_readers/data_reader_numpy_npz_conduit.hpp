@@ -75,10 +75,20 @@ namespace lbann {
   protected:
     void preload_data_store();
 
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     bool fetch_datum_short(CPUMatShort& X, int data_id, int mb_idx) override;
+#else
+    bool fetch_datum(CPUMat& X, int data_id, int mb_idx) override;
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     bool fetch_label(CPUMat& Y, int data_id, int mb_idx) override;
     bool fetch_response(CPUMat& Y, int data_id, int mb_idx) override;
-    bool is_datum_short() const override { return true; }
+    bool is_datum_short() const override {
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+      return true;
+#else
+      return false;
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+    }
 
     /// Number of samples.
     int m_num_samples = 0;

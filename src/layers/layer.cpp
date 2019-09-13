@@ -812,9 +812,9 @@ std::unique_ptr<TAbsDistMat> Layer::construct_matrix_t(const El::Grid& grid,
 template std::unique_ptr<AbsDistMat> Layer::construct_matrix_t(const El::Grid& grid,
                                                                std::string type,
                                                                El::Int index);
-template std::unique_ptr<AbsDistMatIO> Layer::construct_matrix_t(const El::Grid& grid,
-                                                                 std::string type,
-                                                                 El::Int index);
+template std::unique_ptr<AbsDistMatShort> Layer::construct_matrix_t(const El::Grid& grid,
+                                                                    std::string type,
+                                                                    El::Int index);
 
 void Layer::setup_data() {
   // Get mini-batch size
