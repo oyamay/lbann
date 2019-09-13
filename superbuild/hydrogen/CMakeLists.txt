@@ -13,6 +13,8 @@ option(Hydrogen_USE_64BIT_BLAS_INTS
 
 option(Hydrogen_ENABLE_TESTING "Enable the hydrogen tests." OFF)
 
+option(Hydrogen_ENABLE_SHORT "Enable the instantiation of short matrices." ON)
+
 # Where to install Hydrogen
 set(HYDROGEN_CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}"
   CACHE PATH "The installation location of Hydrogen.")

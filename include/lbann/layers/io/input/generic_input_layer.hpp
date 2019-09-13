@@ -175,13 +175,10 @@ class generic_input_layer : public io_layer {
       output.Resize(output.Height(), max_mb_size);
     }
 
-    assert(m_io_activation_data == nullptr); // REVIEW
-
-    // TAbsDistMat
+    // Setup I/O activations
+    assert(m_io_activation_data == nullptr);
     m_io_activation_data = construct_matrix_t<AbsDistMatIO>(m_comm->get_trainer_grid(), "output", 0);
     m_io_activation_responses = construct_matrix(m_comm->get_trainer_grid(), "output", 1);
-
-    // Setup I/O activations
     m_io_activation_data->Resize(get_activations(0).Height(),
                                  get_activations(0).Width());
     if(get_num_children() >= 2)
@@ -1052,12 +1049,7 @@ class generic_input_layer : public io_layer {
 
   const bool m_background_shuffle = false;
 
-#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
-  // Cosmoflow samples are kept stored in int16
-  using InputType = short;
-#else
-  using InputType = DataType;
-#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+  using InputType = DataTypeIO;
 
   using TensorHost = dc::TensorHost<InputType>;
   using TensorShuffler = dc::TensorHostShuffler<InputType>;

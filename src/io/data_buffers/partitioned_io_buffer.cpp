@@ -125,7 +125,7 @@ int lbann::partitioned_io_buffer::fetch_to_local_matrix(generic_data_reader *dat
 
 void lbann::partitioned_io_buffer::distribute_from_local_matrix(generic_data_reader *data_reader, execution_mode mode, AbsDistMatIO& sample, AbsDistMat& response) {
   data_buffer *buf = get_data_buffer(mode);
-  Copy(*buf->m_input_data_buffer, sample); // REVIEW
+  Copy(*buf->m_input_data_buffer, sample);
   Copy(*buf->m_input_response_buffer, response);
   buf->m_num_samples_fetched = 0;
   return;
@@ -133,7 +133,7 @@ void lbann::partitioned_io_buffer::distribute_from_local_matrix(generic_data_rea
 
 void lbann::partitioned_io_buffer::distribute_from_local_matrix(generic_data_reader *data_reader, execution_mode mode, AbsDistMatIO& sample) {
   data_buffer *buf = get_data_buffer(mode);
-  Copy(*buf->m_input_data_buffer, sample); // REVIEW
+  Copy(*buf->m_input_data_buffer, sample);
   buf->m_num_samples_fetched = 0;
   return;
 }
