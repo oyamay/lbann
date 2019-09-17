@@ -944,8 +944,6 @@ class generic_input_layer : public io_layer {
   std::vector<generic_io_buffer*> m_io_buffers;
   std::unique_ptr<AbsDistMatIO> m_io_activation_data;
   std::unique_ptr<AbsDistMat> m_io_activation_responses;
-  // StarVCMatIO<El::Device::CPU> m_io_activation_data;
-  // StarVCMat<El::Device::CPU> m_io_activation_responses;
   io_buffer_map_t m_active_buffer;
 
   dataset m_training_dataset;
@@ -1189,6 +1187,10 @@ class generic_input_layer : public io_layer {
     }
     // Note: no copy out for activation is necessary as the original
     // LBANN tensor is valid.
+
+    // Copy responses if available
+    if(get_num_children() >= 2 && m_io_activation_responses->Buffer() != nullptr)
+      El::Copy(*m_io_activation_responses, get_activations(1));
   }
 
   void fp_compute_distconv_background(int active_buffer, execution_mode mode) {
