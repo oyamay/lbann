@@ -83,6 +83,8 @@ USE_NINJA=0
 # by enabling LIBJPEG_TURBO_DIR
 WITH_LIBJPEG_TURBO=ON
 #LIBJPEG_TURBO_DIR="/p/lscratchh/brainusr/libjpeg-turbo-1.5.2"
+HYDROGEN_URL=git@github.com:oyamay/Elemental.git
+HYDROGEN_TAG=short-instantiation
 
 function version_gt() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
 
@@ -295,6 +297,14 @@ while :; do
 			;;
 		--distconv-cosmoflow-int16)
 			LBANN_DISTCONV_COSMOFLOW_KEEP_INT16=ON
+			;;
+		--hydrogen-url)
+			HYDROGEN_URL=$2
+			shift
+			;;
+		--hydrogen-tag)
+			HYDROGEN_TAG=$2
+			shift
 			;;
         --instrument)
             INSTRUMENT="-finstrument-functions -ldl"
@@ -839,6 +849,8 @@ cmake \
 -D LBANN_WITH_DISTCONV=${WITH_DISTCONV} \
 -D DISTCONV_URL=${DISTCONV_URL} \
 -D DISTCONV_TAG=${DISTCONV_TAG} \
+-D HYDROGEN_URL=${HYDROGEN_URL} \
+-D HYDROGEN_TAG=${HYDROGEN_TAG} \
 -D LBANN_DISTCONV_NUM_DIMS=${LBANN_DISTCONV_NUM_DIMS} \
 -D LBANN_DISTCONV_COSMOFLOW_KEEP_INT16=${LBANN_DISTCONV_COSMOFLOW_KEEP_INT16} \
 -D LBANN_SB_BUILD_P2P=${WITH_DISTCONV} \
