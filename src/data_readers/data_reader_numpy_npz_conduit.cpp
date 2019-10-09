@@ -132,7 +132,7 @@ void numpy_npz_conduit_reader::load() {
 }
 
 void numpy_npz_conduit_reader::preload_data_store() {
-  size_t count = get_absolute_sample_count(); 
+  size_t count = get_absolute_sample_count();
   double use_percent = get_use_percent();
   if (count != 0 || use_percent != 1) {
     LBANN_ERROR("numpy_npz_conduit_reader currently assumes you are using 100% of the data set; you specified get_absolute_sample_count() = ", count, " and get_use_percent() = ", use_percent, "; please ask Dave Hysom to modify the code, if you want to use less than 100%");
@@ -234,7 +234,6 @@ bool numpy_npz_conduit_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
   char *char_data_2 = const_cast<char*>(char_data);
 
   assert(m_data_word_size == 2);
-  // Convert int16 to DataType.
   const short *data = reinterpret_cast<short*>(char_data_2);
   auto *dest = X_v.Buffer();
   // OPTIMIZE
@@ -331,10 +330,10 @@ void numpy_npz_conduit_reader::fill_in_metadata() {
     LBANN_ERROR("failed to open " + m_filenames[my_file] + " for reading");
   }
   in.close();
-  m_num_samples = m_filenames.size(); 
-  if (is_master()) { 
+  m_num_samples = m_filenames.size();
+  if (is_master()) {
     std::cout << "num samples: " << m_num_samples << "\n";
-  } 
+  }
 
   int data_id = 0; //meaningless
   conduit::Node node;

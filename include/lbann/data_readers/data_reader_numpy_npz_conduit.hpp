@@ -77,7 +77,7 @@ namespace lbann {
 
 #ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     bool fetch_datum_short(CPUMatShort& X, int data_id, int mb_idx) override;
-#else
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     bool fetch_datum(CPUMat& X, int data_id, int mb_idx) override;
 #endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     bool fetch_label(CPUMat& Y, int data_id, int mb_idx) override;

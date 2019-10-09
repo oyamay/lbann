@@ -117,7 +117,7 @@ using StarMat    = El::DistMatrix<DataType, El::STAR, El::STAR, El::ELEMENT, D>;
 template <El::Device D>
 using StarVCMat  = El::DistMatrix<DataType, El::STAR, El::VC  , El::ELEMENT, D>;
 template <El::Device D>
-using StarVCMatIO= El::DistMatrix<DataTypeIO, El::STAR, El::VC  , El::ELEMENT, D>;
+using StarVCMatIO= El::DistMatrix<DataTypeIO,El::STAR,El::VC  , El::ELEMENT, D>;
 template <El::Device D>
 using VCStarMat  = El::DistMatrix<DataType, El::VC  , El::STAR, El::ELEMENT, D>; /// ColSumStarVCMat
 template <El::Device D>

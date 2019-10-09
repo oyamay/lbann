@@ -95,9 +95,9 @@ void lbann::partitioned_io_buffer::setup_data(El::Int num_neurons, El::Int num_t
     for (const auto& buf : data_buffer->m_input_buffers) {
       if(i == 0) {
         buf->Resize(num_neurons, max_mini_batch_size);
-      } else if(i == 1) {
+      }else if(i == 1) {
         buf->Resize(num_targets, max_mini_batch_size);
-      } else {
+      }else {
         LBANN_ERROR("Unsupported number of input channels");
       }
       i++;

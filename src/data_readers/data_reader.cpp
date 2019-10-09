@@ -80,8 +80,8 @@ void generic_data_reader::setup(int num_io_threads, observer_ptr<thread_pool> io
 #ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 template<typename TMat>
 bool lbann::generic_data_reader::fetch_data_block_t(TMat& X, El::Int thread_id, El::Int mb_size, El::Matrix<El::Int>& indices_fetched) {
-#else
-bool lbann::generic_data_reader::fetch_data_block(Mat& X, El::Int thread_id, El::Int mb_size, El::Matrix<El::Int>& indices_fetched) {
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+bool lbann::generic_data_reader::fetch_data_block(CPUMat& X, El::Int thread_id, El::Int mb_size, El::Matrix<El::Int>& indices_fetched) {
 #endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   std::string error_message;
   prof_region_begin("fetch_data_block", prof_colors[0], false);
@@ -107,7 +107,7 @@ bool lbann::generic_data_reader::fetch_data_block(Mat& X, El::Int thread_id, El:
 template<typename TMat>
 int lbann::generic_data_reader::fetch_data_t(TMat& X, El::Matrix<El::Int>& indices_fetched) {
 #else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
-int lbann::generic_data_reader::fetch_data(Mat& X, El::Matrix<El::Int>& indices_fetched) {
+int lbann::generic_data_reader::fetch_data(CPUMat& X, El::Matrix<El::Int>& indices_fetched) {
 #endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   #ifdef DEBUG
   if (m_current_pos == 0) {
@@ -175,14 +175,14 @@ int lbann::generic_data_reader::fetch_data(Mat& X, El::Matrix<El::Int>& indices_
       continue;
     }else {
       m_io_thread_pool->submit_job_to_work_group(
-          std::bind(
+        std::bind(
 #ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
-              &generic_data_reader::fetch_data_block_t<TMat>,
+            &generic_data_reader::fetch_data_block_t<TMat>,
 #else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
-              &generic_data_reader::fetch_data_block,
+            &generic_data_reader::fetch_data_block,
 #endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
-              this, std::ref(X), t,
-              mb_size, std::ref(indices_fetched)));
+            this, std::ref(X), t,
+            mb_size, std::ref(indices_fetched)));
     }
   }
   prof_region_end("fetch_data_submit", false);

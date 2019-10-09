@@ -48,7 +48,7 @@ class data_buffer {
   El::Matrix<El::Int> m_indices_fetched_per_mb;
 
   data_buffer(lbann_comm *comm, int num_child_layers) :
-      m_num_samples_fetched(0), m_fetch_data_in_background(false)
+    m_num_samples_fetched(0), m_fetch_data_in_background(false)
   {
 #ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     assert(num_child_layers == 1 || num_child_layers == 2);
@@ -65,7 +65,7 @@ class data_buffer {
   }
 
   data_buffer(const data_buffer& other) :
-      m_num_samples_fetched(other.m_num_samples_fetched)
+    m_num_samples_fetched(other.m_num_samples_fetched)
   {
 #ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     m_fetch_data_in_background.store(other.m_fetch_data_in_background);
