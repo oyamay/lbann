@@ -94,7 +94,7 @@ class data_reader_jag_conduit : public generic_data_reader {
   ~data_reader_jag_conduit() override;
   data_reader_jag_conduit* copy() const override { return new data_reader_jag_conduit(*this); }
 
-  void setup(int num_io_threads, std::shared_ptr<thread_pool> io_thread_pool) override;
+  void setup(int num_io_threads, observer_ptr<thread_pool> io_thread_pool) override;
 
   std::string get_type() const override {
     return "data_reader_jag_conduit";
@@ -175,8 +175,8 @@ class data_reader_jag_conduit : public generic_data_reader {
   /// Set every reader instances in a model to have an independent index list
   void set_list_per_model(bool flag) { m_list_per_model = flag; };
 
-  bool has_list_per_model() const { return m_list_per_model; }
-  bool has_list_per_trainer() const { return m_list_per_trainer; }
+  bool has_list_per_model() const override { return m_list_per_model; }
+  bool has_list_per_trainer() const override { return m_list_per_trainer; }
 
 
   /// Fetch data of a mini-batch or reuse it from the cache of the leading reader
@@ -346,6 +346,7 @@ class data_reader_jag_conduit : public generic_data_reader {
 
   bool has_path(const file_handle_t& h, const std::string& path) const;
   void read_node(const file_handle_t& h, const std::string& path, conduit::Node& n) const;
+  void read_partial_node(const file_handle_t& h, const std::string& path, conduit::Node& n) const;
 
   /// Allow const access to the conduit data structure
   static const conduit::Node& get_conduit_node(const conduit::Node& n_base, const std::string key);
@@ -361,12 +362,12 @@ class data_reader_jag_conduit : public generic_data_reader {
   /// Obtain image data
   std::vector< std::vector<DataType> > get_image_data(const size_t i, conduit::Node& sample) const;
 
-  bool data_store_active() const {
+  bool data_store_active() const override {
     bool flag = generic_data_reader::data_store_active();
     return (m_data_store != nullptr && flag);
   }
 
-  bool priming_data_store() const {
+  bool priming_data_store() const override {
     bool flag = generic_data_reader::priming_data_store();
     return (m_data_store != nullptr && flag);
   }

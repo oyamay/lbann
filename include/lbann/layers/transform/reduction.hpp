@@ -38,8 +38,11 @@ enum class reduction_mode {INVALID, SUM, AVERAGE};
  *
  *  @todo Reduction over specified dimensions.
  */
-template <data_layout T_layout = data_layout::DATA_PARALLEL, El::Device Dev = El::Device::CPU>
+template <data_layout T_layout = data_layout::DATA_PARALLEL,
+          El::Device Dev = El::Device::CPU>
 class reduction_layer : public transform_layer {
+  static_assert(T_layout == data_layout::DATA_PARALLEL,
+                "reduction currently only supports DATA_PARALLEL");
 private:
 
   /** Reduction mode. */
@@ -54,8 +57,6 @@ public:
                   reduction_mode mode)
     : transform_layer(comm),
       m_mode(mode) {
-    static_assert(T_layout == data_layout::DATA_PARALLEL,
-                  "reduction currently only supports DATA_PARALLEL");
     if (mode == reduction_mode::INVALID) {
       LBANN_ERROR("invalid reduction mode");
     }
@@ -67,7 +68,7 @@ public:
   El::Device get_device_allocation() const override { return Dev; }
 
   description get_description() const override {
-    auto&& desc = transform_layer::get_description();
+    auto desc = transform_layer::get_description();
     std::string mode_str;
     switch (m_mode) {
     case reduction_mode::SUM:     mode_str = "sum";     break;
@@ -142,6 +143,15 @@ protected:
   }
 
 };
+
+#ifndef LBANN_REDUCTION_LAYER_INSTANTIATE
+extern template class reduction_layer<
+  data_layout::DATA_PARALLEL, El::Device::CPU>;
+#ifdef LBANN_HAS_GPU
+extern template class reduction_layer<
+  data_layout::DATA_PARALLEL, El::Device::GPU>;
+#endif // LBANN_HAS_GPU
+#endif // LBANN_REDUCTION_LAYER_INSTANTIATE
 
 } // namespace lbann
 

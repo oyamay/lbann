@@ -94,9 +94,16 @@ void numpy_npz_conduit_reader::load() {
   std::string infile = get_data_filename();
   read_filelist(m_comm, infile, m_filenames);
 
-  // fills in: m_num_samples, m_num_features, m_num_response_features,
+  // fills in: m_num_features, m_num_response_features,
   // m_data_dims, m_data_word_size, m_response_word_size
   fill_in_metadata();
+
+  // Reset indices.
+  m_shuffled_indices.clear();
+  m_shuffled_indices.resize(m_num_samples);
+  std::iota(m_shuffled_indices.begin(), m_shuffled_indices.end(), 0);
+  resize_shuffled_indices();
+  m_num_samples = m_shuffled_indices.size();
 
   if (m_num_labels == 0 && !opts->get_bool("preload_data_store") && opts->get_bool("use_data_store")) {
     LBANN_WARNING("when not preloading you must specify the number of labels in the prototext file if you are doing classification");
@@ -119,20 +126,18 @@ void numpy_npz_conduit_reader::load() {
     }
   }
 
-  // Reset indices.
-  m_shuffled_indices.clear();
-  m_shuffled_indices.resize(m_num_samples);
-  std::iota(m_shuffled_indices.begin(), m_shuffled_indices.end(), 0);
-
   instantiate_data_store(local_list_sizes);
 
-  // TODO: this may need fixing up for efficiency. If using an absolute
-  //       num samples, or percentage of samples, and we've preloaded,
-  //       this is wasteful and not what we want
   select_subset_of_data();
 }
 
 void numpy_npz_conduit_reader::preload_data_store() {
+  size_t count = get_absolute_sample_count(); 
+  double use_percent = get_use_percent();
+  if (count != 0 || use_percent != 1) {
+    LBANN_ERROR("numpy_npz_conduit_reader currently assumes you are using 100% of the data set; you specified get_absolute_sample_count() = ", count, " and get_use_percent() = ", use_percent, "; please ask Dave Hysom to modify the code, if you want to use less than 100%");
+  }
+
   double tm1 = get_time();
   m_data_store->set_preload();
   int rank = m_comm->get_rank_in_trainer();
@@ -219,7 +224,8 @@ bool numpy_npz_conduit_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
     numpy_conduit_converter::load_conduit_node(m_filenames[data_id], data_id, node);
     //note: if testing, and test set is touched more than once, the following
     //      will through an exception TODO: relook later
-    if (priming_data_store() || m_model->get_execution_mode() == execution_mode::testing) {
+    const auto& c = static_cast<const execution_context&>(m_model->get_execution_context());
+    if (priming_data_store() || c.get_execution_mode() == execution_mode::testing) {
       m_data_store->set_conduit_node(data_id, node);
     }
   }
@@ -325,11 +331,10 @@ void numpy_npz_conduit_reader::fill_in_metadata() {
     LBANN_ERROR("failed to open " + m_filenames[my_file] + " for reading");
   }
   in.close();
-
-  m_num_samples = m_filenames.size();
-  if (is_master()) {
+  m_num_samples = m_filenames.size(); 
+  if (is_master()) { 
     std::cout << "num samples: " << m_num_samples << "\n";
-  }
+  } 
 
   int data_id = 0; //meaningless
   conduit::Node node;

@@ -33,17 +33,25 @@
 
 namespace lbann {
 
+// Forward declaration.
+namespace callback {
+class imcomm;
+}
+
 /** @brief Standard deep learning convolution.
  *
  *  Applies convolution (more precisely, cross-correlation) to input
  *  tensors. This is primarily optimized for image data in NCHW
  *  format.
  */
-template <data_layout Layout = data_layout::DATA_PARALLEL, El::Device Device = El::Device::CPU>
+template <data_layout Layout = data_layout::DATA_PARALLEL,
+          El::Device Device = El::Device::CPU>
 class convolution_layer : public base_convolution_layer<Device> {
+  static_assert(Layout == data_layout::DATA_PARALLEL,
+                "convolution layer only supports DATA_PARALLEL");
 private:
 
-  friend class lbann_callback_imcomm;
+  friend class callback::imcomm;
 
 
 public:
@@ -86,9 +94,6 @@ public:
         std::move(dilations),
         groups,
         has_bias) {
-    static_assert(Layout == data_layout::DATA_PARALLEL,
-                  "convolution layer only supports DATA_PARALLEL");
-
   }
 
   convolution_layer* copy() const override { return new convolution_layer(*this); }
@@ -125,7 +130,7 @@ protected:
 
   }
 
-  std::vector<int> get_kernel_dims() const {
+  std::vector<int> get_kernel_dims() const override {
     std::vector<int> dims;
     dims.push_back(this->m_output_channels);
     dims.push_back(this->get_input_dims()[0] / this->m_groups);
@@ -267,8 +272,8 @@ protected:
 #else
     dc::MPIPrintStreamDebug() << this->get_name() << ": Compute gradients";
 
-    const int effective_mini_batch_size =
-        this->m_model->get_effective_mini_batch_size();
+    const auto& c = static_cast<sgd_execution_context&>(this->m_model->get_execution_context());
+    const auto effective_mini_batch_size = c.get_effective_mini_batch_size();
     const bool has_local_data = this->m_prev_activations_t.get_local_size() > 0 &&
         this->m_prev_error_signals_t.get_local_size() > 0;
 
@@ -514,6 +519,15 @@ protected:
 
 #endif // LBANN_HAS_DISTCONV
 };
+
+#ifndef LBANN_CONVOLUTION_LAYER_INSTANTIATE
+extern template class convolution_layer<
+  data_layout::DATA_PARALLEL, El::Device::CPU>;
+#ifdef LBANN_HAS_GPU
+extern template class convolution_layer<
+  data_layout::DATA_PARALLEL, El::Device::GPU>;
+#endif // LBANN_HAS_GPU
+#endif // LBANN_CONVOLUTION_LAYER_INSTANTIATE
 
 } // namespace lbann
 

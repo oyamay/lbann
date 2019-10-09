@@ -63,29 +63,44 @@ enum class batch_normalization_stats_aggregation {
  */
 template <data_layout T_layout, El::Device Dev>
 class batch_normalization_layer : public regularizer_layer {
-
+  static_assert(T_layout == data_layout::DATA_PARALLEL,
+                "batch normalization only supports DATA_PARALLEL");
 private:
 
   /** Decay rate for the running statistics. */
   DataType m_decay;
   /** Small number to avoid division by zero. */
   DataType m_epsilon;
-  /** Type of statistics aggregation to use. */
-  batch_normalization_stats_aggregation m_stats_aggregation;
+  /** @brief Size of group to aggregate statistics over.
+   *
+   * If this is 1, the group consists of one process and aggregation
+   * is local. If it is 0, statistics are aggregated globally.
+   */
+  int m_statistics_group_size;
   /**
    * Cache of node-local num_per_sum results for node-local stats.
    * Indexed by effective mini-batch size.
    */
   std::unordered_map<El::Int, El::Int> m_num_per_sum_cache;
 
-  /** Current minibatch means. */
-  std::unique_ptr<AbsDistMat> m_mean;
-  /** Current minibatch standard deviations. */
-  std::unique_ptr<AbsDistMat> m_var;
-  /** Gradient w.r.t. means. */
-  std::unique_ptr <AbsDistMat> m_mean_gradient;
-  /** Gradient w.r.t. standard deviations. */
-  std::unique_ptr<AbsDistMat> m_var_gradient;
+  /** @brief Current minibatch means and standard deviations.
+   *
+   * These are fused for performance when doing non-local batchnorm.
+   */
+  std::unique_ptr<AbsDistMat> m_mean_and_var;
+  /** View of current mini-batch means. */
+  std::unique_ptr<AbsDistMat> m_mean_v;
+  /** View of current mini-batch standard deviations. */
+  std::unique_ptr<AbsDistMat> m_var_v;
+  /** @brief Gradients w.r.t. means and standard deviations.
+   *
+   * These are fused for performance when doing non-local batchnorm.
+   */
+  std::unique_ptr<AbsDistMat> m_mean_and_var_gradient;
+  /** View of gradient w.r.t. means. */
+  std::unique_ptr<AbsDistMat> m_mean_gradient_v;
+  /** View of gradient w.r.t. standard deviations. */
+  std::unique_ptr<AbsDistMat> m_var_gradient_v;
   /** Gradient w.r.t. scaling terms. */
   std::unique_ptr<AbsDistMat> m_scale_gradient;
   /** Gradient w.r.t. bias terms. */
@@ -98,22 +113,20 @@ public:
    *  @param decay Controls the momentum of the running mean/standard
    *         deviation averages.
    *  @param epsilon A small number to avoid division by zero.
-   *  @param stats_aggregation The type of statistics to use when training.
+   *  @param statistics_group_size Number of processors to aggregate
+   *         statistics over. Defaults to 1 (i.e. local aggregation).
    */
   batch_normalization_layer(lbann_comm *comm,
                             DataType decay=0.9,
                             DataType epsilon=1e-5,
-                            batch_normalization_stats_aggregation stats_aggregation =
-                            batch_normalization_stats_aggregation::local)
+                            int statistics_group_size=1)
     : regularizer_layer(comm),
       m_decay(decay),
       m_epsilon(epsilon),
-      m_stats_aggregation(stats_aggregation) {
-    static_assert(T_layout == data_layout::DATA_PARALLEL,
-                  "batch normalization only supports DATA_PARALLEL");
+      m_statistics_group_size(statistics_group_size) {
 #ifdef LBANN_DETERMINISTIC
     // Force global computation.
-    m_stats_aggregation = batch_normalization_stats_aggregation::global;
+    m_statistics_group_size = 0;
 #endif
   }
 
@@ -121,14 +134,18 @@ public:
     : regularizer_layer(other),
       m_decay(other.m_decay),
       m_epsilon(other.m_epsilon),
-      m_stats_aggregation(other.m_stats_aggregation),
+      m_statistics_group_size(other.m_statistics_group_size),
       m_num_per_sum_cache(other.m_num_per_sum_cache),
-      m_mean(other.m_mean ? other.m_mean->Copy() : nullptr),
-      m_var(other.m_var ? other.m_var->Copy() : nullptr),
-      m_mean_gradient(other.m_mean_gradient ?
-                      other.m_mean_gradient->Copy() : nullptr),
-      m_var_gradient(other.m_var_gradient ?
-                     other.m_var_gradient->Copy() : nullptr),
+      m_mean_and_var(other.m_mean_and_var ?
+                     other.m_mean_and_var->Copy() : nullptr),
+      m_mean_v(other.m_mean_v ? other.m_mean_v->Copy() : nullptr),
+      m_var_v(other.m_var_v ? other.m_var_v->Copy() : nullptr),
+      m_mean_and_var_gradient(other.m_mean_and_var_gradient ?
+                              other.m_mean_and_var_gradient->Copy() : nullptr),
+      m_mean_gradient_v(other.m_mean_gradient_v ?
+                        other.m_mean_gradient_v->Copy() : nullptr),
+      m_var_gradient_v(other.m_var_gradient_v ?
+                       other.m_var_gradient_v->Copy() : nullptr),
       m_scale_gradient(other.m_scale_gradient ?
                        other.m_scale_gradient->Copy() : nullptr),
       m_bias_gradient(other.m_bias_gradient ?
@@ -138,16 +155,22 @@ public:
     regularizer_layer::operator=(other);
     m_decay = other.m_decay;
     m_epsilon = other.m_epsilon;
-    m_stats_aggregation = other.m_stats_aggregation;
+    m_statistics_group_size = other.m_statistics_group_size;
     m_num_per_sum_cache = other.m_num_per_sum_cache;
 
     // Deep copy matrices
-    m_mean.reset(other.m_mean ? other.m_mean->Copy() : nullptr);
-    m_var.reset(other.m_var ? other.m_var->Copy() : nullptr);
-    m_mean_gradient.reset(other.m_mean_gradient ?
-                          other.m_mean_gradient->Copy() : nullptr);
-    m_var_gradient.reset(other.m_var_gradient ?
-                         other.m_var_gradient->Copy() : nullptr);
+    m_mean_and_var.reset(other.m_mean_and_var ?
+                         other.m_mean_and_var->Copy() : nullptr);
+    m_mean_v.reset(other.m_mean_v ?
+                   other.m_mean_v->Copy() : nullptr);
+    m_var_v.reset(other.m_var_v ?
+                  other.m_var_v->Copy() : nullptr);
+    m_mean_and_var_gradient.reset(other.m_mean_and_var_gradient ?
+                                  other.m_mean_and_var_gradient->Copy() : nullptr);
+    m_mean_gradient_v.reset(other.m_mean_gradient_v ?
+                            other.m_mean_gradient_v->Copy() : nullptr);
+    m_var_gradient_v.reset(other.m_var_gradient_v ?
+                           other.m_var_gradient_v->Copy() : nullptr);
     m_scale_gradient.reset(other.m_scale_gradient ?
                            other.m_scale_gradient->Copy() : nullptr);
     m_bias_gradient.reset(other.m_bias_gradient ?
@@ -162,23 +185,10 @@ public:
   El::Device get_device_allocation() const override { return Dev; }
 
   description get_description() const override {
-    auto&& desc = regularizer_layer::get_description();
+    auto desc = regularizer_layer::get_description();
     desc.add("Decay", m_decay);
     desc.add("Epsilon", m_epsilon);
-    switch (m_stats_aggregation) {
-    case batch_normalization_stats_aggregation::local:
-      desc.add("Statistics aggregation", "local");
-      break;
-    case batch_normalization_stats_aggregation::node_local:
-      desc.add("Statistics aggregation", "node-local");
-      break;
-    case batch_normalization_stats_aggregation::global:
-      desc.add("Statistics aggregation", "global");
-      break;
-    case batch_normalization_stats_aggregation::spatial:
-      desc.add("Statistics aggregation", "spatial");
-      break;
-    }
+    desc.add("Statistics group size", m_statistics_group_size);
     return desc;
   }
 
@@ -186,10 +196,12 @@ protected:
 
   void setup_matrices(const El::Grid& grid) override {
     regularizer_layer::setup_matrices(grid);
-    m_mean.reset(new StarMat<Dev>(grid));
-    m_var.reset(new StarMat<Dev>(grid));
-    m_mean_gradient.reset(new StarMat<Dev>(grid));
-    m_var_gradient.reset(new StarMat<Dev>(grid));
+    m_mean_and_var.reset(new StarMat<Dev>(grid));
+    m_mean_v.reset(new StarMat<Dev>(grid));
+    m_var_v.reset(new StarMat<Dev>(grid));
+    m_mean_and_var_gradient.reset(new StarMat<Dev>(grid));
+    m_mean_gradient_v.reset(new StarMat<Dev>(grid));
+    m_var_gradient_v.reset(new StarMat<Dev>(grid));
     m_scale_gradient.reset(new StarMat<Dev>(grid));
     m_bias_gradient.reset(new StarMat<Dev>(grid));
   }
@@ -208,38 +220,29 @@ protected:
     const auto& output = get_activations();
     const auto& mini_batch_size = output.Width();
     const auto& local_mini_batch_size = mini_batch_size / output.DistSize();
-    if (m_stats_aggregation == batch_normalization_stats_aggregation::global
-        && mini_batch_size <= 4) {
-      std::stringstream err;
-      err << "LBANN warning: "
-          << get_type() << " layer \"" << get_name() << "\" "
-          << "is using global statistics and "
-          << "the mini-batch size (" << mini_batch_size << ") "
-          << "may be too small to get good statistics";
+    if (m_statistics_group_size == 0 && mini_batch_size <= 4) {
       if (output.DistRank() == 0) {
+        std::stringstream err;
+        err << "LBANN warning: "
+            << get_type() << " layer \"" << get_name() << "\" "
+            << "is using global statistics and "
+            << "the mini-batch size (" << mini_batch_size << ") "
+            << "may be too small to get good statistics";
         std::cerr << err.str() << std::endl;
       }
-    } else if (m_stats_aggregation == batch_normalization_stats_aggregation::node_local
-               && local_mini_batch_size*m_comm->get_procs_per_node() <= 4) {
-      std::stringstream err;
+    } else if (m_statistics_group_size != 0 &&
+               m_statistics_group_size*local_mini_batch_size <= 4) {
+      // This possibly underestimates the aggregation size for processors with
+      // smaller local mini-batch sizes.
+      if (output.DistRank() == 0) {
+        std::stringstream err;
       err << "LBANN warning: "
           << get_type() << " layer \"" << get_name() << "\" "
-          << "is using node-local statistics and "
-          << "the node-local mini-batch size ("
-          << (local_mini_batch_size*m_comm->get_procs_per_node()) << ") "
+          << "is aggregating statistics over "
+          << m_statistics_group_size
+          << "processors and the aggregated mini-batch size ("
+          << (m_statistics_group_size*local_mini_batch_size) << ") "
           << "may be too small to get good statistics";
-      if (output.DistRank() == 0) {
-        std::cerr << err.str() << std::endl;
-      }
-    } else if (m_stats_aggregation == batch_normalization_stats_aggregation::local
-               && local_mini_batch_size <= 4) {
-      std::stringstream err;
-      err << "LBANN warning: "
-          << get_type() << " layer \"" << get_name() << "\" "
-          << "is using local statistics and "
-          << "the local mini-batch size (" << local_mini_batch_size << ") "
-          << "may be too small to get good statistics";
-      if (output.DistRank() == 0) {
         std::cerr << err.str() << std::endl;
       }
     }
@@ -253,36 +256,40 @@ protected:
     }
     this->m_weights.resize(4, nullptr);
     if (this->m_weights[0] == nullptr) {
-      this->m_weights[0] = new weights(get_comm());
-      std::unique_ptr<weights_initializer> init(new constant_initializer(DataType(1)));
+      auto w = make_unique<weights>(get_comm());
+      auto init = make_unique<constant_initializer>(DataType(1));
       std::unique_ptr<optimizer> opt(m_model->create_optimizer());
-      this->m_weights[0]->set_name(get_name() + "_scale");
-      this->m_weights[0]->set_initializer(init);
-      this->m_weights[0]->set_optimizer(opt);
-      this->m_model->add_weights(this->m_weights[0]);
+      w->set_name(get_name() + "_scale");
+      w->set_initializer(std::move(init));
+      w->set_optimizer(std::move(opt));
+      this->m_weights[0] = w.get();
+      this->m_model->add_weights(std::move(w));
     }
     if (this->m_weights[1] == nullptr) {
-      this->m_weights[1] = new weights(get_comm());
-      std::unique_ptr<weights_initializer> init(new constant_initializer(DataType(0)));
+      auto w = make_unique<weights>(get_comm());
+      auto init = make_unique<constant_initializer>(DataType(0));
       std::unique_ptr<optimizer> opt(m_model->create_optimizer());
-      this->m_weights[1]->set_name(get_name() + "_bias");
-      this->m_weights[1]->set_initializer(init);
-      this->m_weights[1]->set_optimizer(opt);
-      this->m_model->add_weights(this->m_weights[1]);
+      w->set_name(get_name() + "_bias");
+      w->set_initializer(std::move(init));
+      w->set_optimizer(std::move(opt));
+      this->m_weights[1] = w.get();
+      this->m_model->add_weights(std::move(w));
     }
     if (this->m_weights[2] == nullptr) {
-      this->m_weights[2] = new weights(get_comm());
-      this->m_weights[2]->set_name(get_name() + "_running_mean");
-      std::unique_ptr<weights_initializer> init(new constant_initializer(DataType(0)));
-      this->m_weights[2]->set_initializer(init);
-      this->m_model->add_weights(this->m_weights[2]);
+      auto w = make_unique<weights>(get_comm());
+      auto init = make_unique<constant_initializer>(DataType(0));
+      w->set_name(get_name() + "_running_mean");
+      w->set_initializer(std::move(init));
+      this->m_weights[2] = w.get();
+      this->m_model->add_weights(std::move(w));
     }
     if (this->m_weights[3] == nullptr) {
-      this->m_weights[3] = new weights(get_comm());
-      this->m_weights[3]->set_name(get_name() + "_running_variance");
-      std::unique_ptr<weights_initializer> init(new constant_initializer(DataType(1)));
-      this->m_weights[3]->set_initializer(init);
-      this->m_model->add_weights(this->m_weights[3]);
+      auto w = make_unique<weights>(get_comm());
+      auto init = make_unique<constant_initializer>(DataType(1));
+      w->set_name(get_name() + "_running_variance");
+      w->set_initializer(std::move(init));
+      this->m_weights[3] = w.get();
+      this->m_model->add_weights(std::move(w));
     }
 
     // Setup weights
@@ -295,12 +302,18 @@ protected:
     }
 
     // Initialize matrices
-    El::Zeros(*m_mean,           num_channels, 1);
-    El::Zeros(*m_var,            num_channels, 1);
-    El::Zeros(*m_mean_gradient,  num_channels, 1);
-    El::Zeros(*m_var_gradient,   num_channels, 1);
+    El::Zeros(*m_mean_and_var,   num_channels, 2);
+    El::Zeros(*m_mean_and_var_gradient, num_channels, 2);
     El::Zeros(*m_scale_gradient, num_channels, 1);
     El::Zeros(*m_bias_gradient,  num_channels, 1);
+
+    // Initialize views.
+    El::View(*m_mean_v, *m_mean_and_var, El::ALL, El::IR(0, 1));
+    El::View(*m_var_v, *m_mean_and_var, El::ALL, El::IR(1, 2));
+    El::View(*m_mean_gradient_v, *m_mean_and_var_gradient,
+             El::ALL, El::IR(0, 1));
+    El::View(*m_var_gradient_v, *m_mean_and_var_gradient,
+             El::ALL, El::IR(1, 2));
 
     // Initialize freeze state
     for (auto&& w : this->m_weights) {
@@ -360,8 +373,9 @@ protected:
     const int num_channels = this->get_output_dims()[0];
     // Sanity check that the shared tensors have the correct shape
     assert_ne(num_channels, 0);
-    assert_eq(m_mean->Matrix().Width() * m_mean->Matrix().Height(),
-              num_channels);
+    assert_eq(m_mean_and_var->Matrix().Width() *
+              m_mean_and_var->Matrix().Height(),
+              num_channels * 2);
 
     dc::Shape per_channel_stat_shape(dc::num_dims, 1);
     per_channel_stat_shape[dc::num_spatial_dims] = num_channels;
@@ -377,10 +391,10 @@ protected:
 
     // mean
     m_mean_t = dc::TensorDev(per_channel_stat_shape, loc, shared_dist);
-    assert0(dc::tensor::View(m_mean_t, this->m_mean->Buffer()));
+    assert0(dc::tensor::View(m_mean_t, this->m_mean_v->Buffer()));
     // var
     m_var_t = dc::TensorDev(per_channel_stat_shape, loc, shared_dist);
-    assert0(dc::tensor::View(m_var_t, this->m_var->Buffer()));
+    assert0(dc::tensor::View(m_var_t, this->m_var_v->Buffer()));
     // scale: view to weights[0]
     m_scale_t = dc::TensorDev(per_channel_stat_shape, loc, shared_dist);
     // bias: view to weights[1]
@@ -400,11 +414,11 @@ protected:
     // mean_gradient
     m_mean_gradient_t = dc::TensorDev(per_channel_stat_shape, loc, shared_dist);
     assert0(dc::tensor::View(
-        m_mean_gradient_t, this->m_mean_gradient->Buffer()));
+        m_mean_gradient_t, this->m_mean_gradient_v->Buffer()));
     // var_gradient
     m_var_gradient_t = dc::TensorDev(per_channel_stat_shape, loc, shared_dist);
     assert0(dc::tensor::View(
-        m_var_gradient_t, this->m_var_gradient->Buffer()));
+        m_var_gradient_t, this->m_var_gradient_v->Buffer()));
   }
 
   void setup_tensors_bwd(const std::array<dc::Dist, dc::num_dists> &dists) override {
@@ -416,23 +430,12 @@ protected:
     setup_error_signals_copyout_tensor(dists);
 
     std::vector<bool> reduced_dims;
-    switch (m_stats_aggregation) {
-    case batch_normalization_stats_aggregation::local:
-      reduced_dims = std::vector<bool>(dc::num_dims, false);
-      break;
-    case batch_normalization_stats_aggregation::node_local:
-      // Not supproted
-      LBANN_ERROR("Node-local aggregation is not supported in Distconv");
-    case batch_normalization_stats_aggregation::global:
+    if (m_statistics_group_size  == 0) {
       reduced_dims = std::vector<bool>(dc::num_dims, true);
-      break;
-    case batch_normalization_stats_aggregation::spatial:
+    } else if (m_statistics_group_size == 1) {
       reduced_dims = std::vector<bool>(dc::num_dims, false);
-      for (int i = 0; i < m_prev_activations_t.get_num_spatial_dims(); ++i) {
-        reduced_dims[i] = true;
-      }
-      m_spatial_loc = m_mean_t.get_spatial_locale();
-      break;
+    } else {
+      LBANN_ERROR("statistics_group_size must be either 0 or 1 for now.");
     }
 
     m_bn = new dc::BatchNormalization(
@@ -446,6 +449,15 @@ protected:
 #endif
 
 };
+
+#ifndef LBANN_BATCH_NORMALIZATION_LAYER_INSTANTIATE
+extern template class batch_normalization_layer<
+  data_layout::DATA_PARALLEL, El::Device::CPU>;
+#ifdef LBANN_HAS_GPU
+extern template class batch_normalization_layer<
+  data_layout::DATA_PARALLEL, El::Device::GPU>;
+#endif // LBANN_HAS_GPU
+#endif // LBANN_BATCH_NORMALIZATION_LAYER_INSTANTIATE
 
 } // namespace lbann
 

@@ -1,3 +1,29 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright (c) 2014-2019, Lawrence Livermore National Security, LLC.
+// Produced at the Lawrence Livermore National Laboratory.
+// Written by the LBANN Research Team (B. Van Essen, et al.) listed in
+// the CONTRIBUTORS file. <lbann-dev@llnl.gov>
+//
+// LLNL-CODE-697807.
+// All rights reserved.
+//
+// This file is part of LBANN: Livermore Big Artificial Neural Network
+// Toolkit. For details, see http://software.llnl.gov/LBANN or
+// https://github.com/LLNL/LBANN.
+//
+// Licensed under the Apache License, Version 2.0 (the "Licensee"); you
+// may not use this file except in compliance with the License.  You may
+// obtain a copy of the License at:
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied. See the License for the specific language governing
+// permissions and limitations under the license.
+////////////////////////////////////////////////////////////////////////////////
+
 #include "lbann/proto/proto_common.hpp"
 
 #include "lbann/lbann.hpp"
@@ -6,6 +32,9 @@
 #include "lbann/proto/init_image_data_readers.hpp"
 #include "lbann/proto/factories.hpp"
 #include "lbann/utils/file_utils.hpp"
+
+#include <lbann.pb.h>
+#include <reader.pb.h>
 
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
@@ -19,33 +48,6 @@
 #include <cassert>
 
 namespace lbann {
-
-bool has_motifs(const lbann_comm& comm, const lbann_data::LbannPB& p) {
-  const bool master = comm.am_world_master();
-  if (master) {
-    std::cout << "starting has_motifs\n";
-  }
-  const lbann_data::Model& m = p.model();
-  const int num_layers = m.layer_size();
-  for (int j=0; j<num_layers; j++) {
-    const lbann_data::Layer& layer = m.layer(j);
-    if (layer.has_motif_layer()) {
-      return true;
-    }
-  }
-  return false;
-}
-
-void expand_motifs(const lbann_comm& comm, lbann_data::LbannPB& pb) {
-  const bool master = comm.am_world_master();
-  if (master) {
-    std::cout << "starting expand_motifs\n";
-  }
-  const lbann_data::MotifDefinitions& m = pb.motif_definitions();
-  const int num_motifs = m.motif_size();
-  for (int j=0; j<num_motifs; j++) {
-  }
-}
 
 int get_requested_num_parallel_readers(
   const lbann_comm& comm, const lbann_data::LbannPB& p);
@@ -95,7 +97,7 @@ void init_data_readers(
     // This is a hack that should be fixed when we clean up data reader setup.
     bool set_transform_pipeline = true;
 
-    if ((name == "mnist") || (name == "cifar10") || (name == "moving_mnist")) {
+    if ((name == "mnist") || (name == "cifar10")) {
       init_org_image_data_reader(readme, master, reader);
       set_transform_pipeline = false;
     } else if ((name == "imagenet") ||
@@ -321,20 +323,18 @@ void init_data_readers(
       if (readme.num_labels() != 0) {
         reader = new data_reader_synthetic(
           readme.num_samples(),
-          proto::parse_list<int>(readme.synth_dimensions()),
+          parse_list<int>(readme.synth_dimensions()),
           readme.num_labels(),
           shuffle);
       } else {
         reader = new data_reader_synthetic(
           readme.num_samples(),
-          proto::parse_list<int>(readme.synth_dimensions()),
-          proto::parse_list<int>(readme.synth_response_dimensions()),
+          parse_list<int>(readme.synth_dimensions()),
+          parse_list<int>(readme.synth_response_dimensions()),
           shuffle);
       }
     } else if (name == "mesh") {
       reader = new mesh_reader(shuffle);
-    } else if (name == "moving_mnist") {
-      reader = new moving_mnist_reader(7, 40, 40, 2);
     } else if (name == "python") {
 #ifdef LBANN_HAS_PYTHON
       const auto& params = readme.python();
@@ -356,7 +356,7 @@ void init_data_readers(
 
     if (set_transform_pipeline) {
       reader->set_transform_pipeline(
-        std::move(proto::construct_transform_pipeline(readme)));
+        proto::construct_transform_pipeline(readme));
     }
 
     if (readme.data_filename() != "") {
@@ -490,9 +490,6 @@ void init_data_readers(
       } else if (name == "mesh") {
         reader_validation = new mesh_reader(shuffle);
         (*(mesh_reader *)reader_validation) = (*(mesh_reader *)reader);
-      } else if (name == "moving_mnist") {
-        reader_validation = new moving_mnist_reader(7, 40, 40, 2);
-        (*(moving_mnist_reader *)reader_validation) = (*(moving_mnist_reader *)reader);
       } else if (name == "python") {
 #ifdef LBANN_HAS_PYTHON
         const auto& params = readme.python();
@@ -501,6 +498,7 @@ void init_data_readers(
                                               params.sample_function(),
                                               params.num_samples_function(),
                                               params.sample_dims_function());
+        (*(python_reader *)reader_validation) = (*(python_reader *)reader);
 #else
         LBANN_ERROR("attempted to construct Python data reader, "
                     "but LBANN is not built with Python/C API");
@@ -509,9 +507,12 @@ void init_data_readers(
 
       reader_validation->set_role("validate");
       reader_validation->use_unused_index_set();
-      if(reader_validation->get_data_store_ptr() != nullptr) {
+      data_store_conduit *store = reader_validation->get_data_store_ptr();
+      if (store != nullptr) {
+        store->set_data_reader_ptr(reader_validation);
         reader_validation->get_data_store_ptr()->compact_nodes();
       }
+
       /// At this point clean up any unused samples from the main data store
       if(reader->get_data_store_ptr() != nullptr) {
         auto&& data_store = reader->get_data_store_ptr();
@@ -602,10 +603,10 @@ bool write_prototext_file(const std::string& fn, lbann_data::LbannPB& pb)
   return true;
 }
 
-bool check_if_num_parallel_readers_set(const lbann_comm& comm, const lbann_data::Model& model)
+bool check_if_num_parallel_readers_set(const lbann_comm& comm, const lbann_data::Trainer& trainer)
 {
   const bool master = comm.am_world_master();
-  const int parallel_io = model.num_parallel_readers();
+  const int parallel_io = trainer.num_parallel_readers();
 
   if (parallel_io == 0) {
     if (master) {
@@ -622,24 +623,24 @@ bool check_if_num_parallel_readers_set(const lbann_comm& comm, const lbann_data:
 
 void set_num_parallel_readers(const lbann_comm& comm, lbann_data::LbannPB& p)
 {
-  lbann_data::Model *model = p.mutable_model();
-  const bool is_set = check_if_num_parallel_readers_set(comm, *model);
+  lbann_data::Trainer *trainer = p.mutable_trainer();
+  const bool is_set = check_if_num_parallel_readers_set(comm, *trainer);
 
   if (!is_set) {
     const int parallel_io = comm.get_procs_per_trainer();
-    model->set_num_parallel_readers(parallel_io); //adjust the prototext
+    trainer->set_num_parallel_readers(parallel_io); //adjust the prototext
   }
 }
 
 int get_requested_num_parallel_readers(const lbann_comm& comm, const lbann_data::LbannPB& p)
 {
-  const lbann_data::Model& model = p.model();
-  const bool is_set = check_if_num_parallel_readers_set(comm, model);
+  const lbann_data::Trainer& trainer = p.trainer();
+  const bool is_set = check_if_num_parallel_readers_set(comm, trainer);
 
   if (!is_set) {
     return comm.get_procs_per_trainer();
   }
-  return model.num_parallel_readers();
+  return trainer.num_parallel_readers();
 }
 
 void set_data_readers_filenames(
@@ -740,6 +741,7 @@ void get_cmdline_overrides(const lbann_comm& comm, lbann_data::LbannPB& p)
   std::ostringstream err;
 
   options *opts = options::get();
+  lbann_data::Trainer *trainer = p.mutable_trainer();
   lbann_data::Model *model = p.mutable_model();
   lbann_data::DataReader *d_reader = p.mutable_data_reader();
   int size = d_reader->reader_size();
@@ -790,13 +792,13 @@ void get_cmdline_overrides(const lbann_comm& comm, lbann_data::LbannPB& p)
     model->set_num_epochs(opts->get_int("num_epochs"));
   }
   if (opts->has_int("block_size")) {
-    model->set_block_size(opts->get_int("block_size"));
+    trainer->set_block_size(opts->get_int("block_size"));
   }
   if (opts->has_int("procs_per_trainer")) {
-    model->set_procs_per_trainer(opts->get_int("procs_per_trainer"));
+    trainer->set_procs_per_trainer(opts->get_int("procs_per_trainer"));
   }
   if (opts->has_int("num_parallel_readers")) {
-    model->set_num_parallel_readers(opts->get_int("num_parallel_readers"));
+    trainer->set_num_parallel_readers(opts->get_int("num_parallel_readers"));
   }
   if (opts->get_bool("disable_cuda")) {
     model->set_disable_cuda(opts->get_bool("disable_cuda"));
@@ -816,7 +818,17 @@ void print_parameters(const lbann_comm& comm, lbann_data::LbannPB& p)
     return;
   }
 
+  const lbann_data::Trainer &t = p.trainer();
   const lbann_data::Model &m = p.model();
+
+  bool disable_cuda = m.disable_cuda();
+#ifndef LBANN_HAS_GPU
+  disable_cuda = false;
+#endif // LBANN_HAS_GPU
+  bool disable_cudnn = disable_cuda;
+#ifndef LBANN_HAS_CUDNN
+  disable_cudnn = false;
+#endif // LBANN_HAS_CUDNN
 
   std::cout << std::endl
             << "Running with these parameters:\n"
@@ -824,11 +836,12 @@ void print_parameters(const lbann_comm& comm, lbann_data::LbannPB& p)
             << "  datatype size:           " << sizeof(DataType) << std::endl
             << "  mini_batch_size:         " << m.mini_batch_size() << std::endl
             << "  num_epochs:              " << m.num_epochs()  << std::endl
-            << "  block_size:              " << m.block_size()  << std::endl
-            << "  procs_per_trainer:       " << m.procs_per_trainer()  << std::endl
-            << "  num_parallel_readers:    " << m.num_parallel_readers()  << std::endl
+            << "  block_size:              " << t.block_size()  << std::endl
+            << "  procs_per_trainer:       " << t.procs_per_trainer()  << std::endl
+            << "  num_parallel_readers:    " << t.num_parallel_readers()  << std::endl
             << "  serialize_io:            " << m.serialize_io()  << std::endl
-            << "  disable_cuda:            " << m.disable_cuda()  << std::endl
+            << "  cuda:                    " << (disable_cuda ? "disabled" : "enabled") << std::endl
+            << "  cudnn:                   " << (disable_cudnn ? "disabled" : "enabled") << std::endl
             << "  random_seed:             " << m.random_seed() << std::endl
             << "  data_layout:             " << m.data_layout()  << std::endl
             << "     (only used for metrics)\n";
@@ -854,8 +867,6 @@ void print_help(std::ostream& os)
        "  is 'data.prototext'  You can specify an alternative name via the option:\n"
        "  --saveme=<string>  You can suppress writing the file via the option:\n"
        "  --saveme=0\n"
-       "\n"
-       "  To reload from a previous checkpoint you specify --ckpt_dir=<string>\n"
        "\n"
        "Some prototext values can be over-riden on the command line;\n"
        "(notes: use '1' or '0' for bool; if no value is given for a flag,\n"
@@ -895,6 +906,16 @@ void print_help(std::ostream& os)
        "      Writes out the sample list that was loaded into the current directory\n"
        "  --ltfb_verbose \n"
        "      Increases number of per-trainer messages that are reported\n"
+       "  --ckpt_dir=<string>\n"
+       "      Save to or restart from a specific checkpoint directory.\n"
+       "      Additionally, sets the output directory for dumping weights.\n"
+       "      Modifies callbacks: checkpoint, save_model, dump_weights\n"
+       "  --restart_dir=<string>\n"
+       "      Restart from a checkpoint found in the given directory.\n"
+       "      If the directory doesn't exist or doesn't contain a checkpoint,\n"
+       "      an error will be thrown.\n"
+       "  --restart_dir_is_fullpath=<bool>\n"
+       "      Indicate whether the restart_dir is a full path.\n"
        "\n"
        "DataReaders:\n"
        "  --data_filedir=<string>\n"
@@ -1008,6 +1029,21 @@ void save_session(const lbann_comm& comm, const int argc, char * const* argv, lb
   google::protobuf::TextFormat::PrintToString(p, &s);
   out << s;
   out.close();
+}
+
+std::string trim(std::string const& str)
+{
+  // Short-circuit on the empty string
+  if (str.size() == 0) return std::string();
+
+  const std::string whitespace = "\f\n\r\t\v ";
+  auto first = str.find_first_not_of(whitespace);
+
+  // All characters are whitespace; short-circuit.
+  if (first == std::string::npos) return std::string();
+
+  auto last = str.find_last_not_of(whitespace);
+  return str.substr(first, (last-first)+1);
 }
 
 } // namespace lbann

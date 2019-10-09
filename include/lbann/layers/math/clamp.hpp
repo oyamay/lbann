@@ -59,7 +59,7 @@ public:
   El::Device get_device_allocation() const override { return Device; }
 
   description get_description() const override {
-    auto&& desc = Layer::get_description();
+    auto desc = Layer::get_description();
     std::stringstream ss;
     ss << "[" << m_min << "," << m_max << "]";
     desc.add("Range", ss.str());
@@ -81,6 +81,19 @@ private:
   DataType m_max;
 
 };
+
+#ifndef LBANN_CLAMP_LAYER_INSTANTIATE
+extern template class clamp_layer<
+  data_layout::DATA_PARALLEL, El::Device::CPU>;
+extern template class clamp_layer<
+  data_layout::MODEL_PARALLEL, El::Device::CPU>;
+#ifdef LBANN_HAS_GPU
+extern template class clamp_layer<
+  data_layout::DATA_PARALLEL, El::Device::GPU>;
+extern template class clamp_layer<
+  data_layout::MODEL_PARALLEL, El::Device::GPU>;
+#endif // LBANN_HAS_GPU
+#endif // LBANN_CLAMP_LAYER_INSTANTIATE
 
 } // namespace lbann
 

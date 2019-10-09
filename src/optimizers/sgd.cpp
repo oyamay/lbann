@@ -26,14 +26,16 @@
 
 #include "lbann/optimizers/sgd.hpp"
 #include "lbann/utils/exception.hpp"
+#include "lbann/utils/memory.hpp"
+
+#include <optimizers.pb.h>
 
 namespace lbann {
 
-sgd::sgd(lbann_comm* comm,
-         DataType learning_rate,
+sgd::sgd(DataType learning_rate,
          DataType momentum,
          bool nesterov)
-  : optimizer(comm, learning_rate),
+  : optimizer(learning_rate),
     m_momentum(momentum),
     m_nesterov(nesterov) {}
 
@@ -53,7 +55,7 @@ sgd& sgd::operator=(const sgd& other) {
 }
 
 description sgd::get_description() const {
-  auto&& desc = optimizer::get_description();
+  auto desc = optimizer::get_description();
   desc.add("Momentum", m_momentum);
   desc.add("Nesterov acceleration", m_nesterov);
   return desc;
@@ -216,6 +218,15 @@ bool sgd::load_from_checkpoint_distributed(persist& p, std::string name_prefix) 
   p.read_rank_distmat(persist_type::train, l_name, *m_velocity);
 
   return true;
+}
+
+std::unique_ptr<optimizer>
+build_sgd_optimizer_from_pbuf(
+  google::protobuf::Message const& msg) {
+  const auto& params = dynamic_cast<lbann_data::Optimizer::SGD const&>(msg);
+  return make_unique<sgd>(params.learn_rate(),
+                          params.momentum(),
+                          params.nesterov());
 }
 
 } // namespace lbann

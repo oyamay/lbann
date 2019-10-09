@@ -34,7 +34,8 @@
 namespace lbann {
 
 /** @brief Add tensors with specified scaling factors. */
-template <data_layout T_layout = data_layout::DATA_PARALLEL, El::Device Dev = El::Device::CPU>
+template <data_layout T_layout = data_layout::DATA_PARALLEL,
+          El::Device Dev = El::Device::CPU>
 class weighted_sum_layer : public transform_layer {
 private:
 
@@ -55,7 +56,7 @@ public:
   El::Device get_device_allocation() const override { return Dev; }
 
   description get_description() const override {
-    auto&& desc = transform_layer::get_description();
+    auto desc = transform_layer::get_description();
     std::stringstream ss;
     for (size_t i = 0; i < m_scaling_factors.size(); ++i) {
       ss << (i > 0 ? ", " : "") << m_scaling_factors[i];
@@ -129,6 +130,19 @@ protected:
   }
 
 };
+
+#ifndef LBANN_WEIGHTED_SUM_LAYER_INSTANTIATE
+extern template class weighted_sum_layer<
+  data_layout::DATA_PARALLEL, El::Device::CPU>;
+extern template class weighted_sum_layer<
+  data_layout::MODEL_PARALLEL, El::Device::CPU>;
+#ifdef LBANN_HAS_GPU
+extern template class weighted_sum_layer<
+  data_layout::DATA_PARALLEL, El::Device::GPU>;
+extern template class weighted_sum_layer<
+  data_layout::MODEL_PARALLEL, El::Device::GPU>;
+#endif // LBANN_HAS_GPU
+#endif // LBANN_WEIGHTED_SUM_LAYER_INSTANTIATE
 
 } // namespace lbann
 

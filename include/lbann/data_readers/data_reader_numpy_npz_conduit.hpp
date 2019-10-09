@@ -73,7 +73,7 @@ namespace lbann {
   const std::vector<int> get_data_dims() const override { return m_data_dims; }
 
   protected:
-    void preload_data_store();
+    void preload_data_store() override;
 
 #ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     bool fetch_datum_short(CPUMatShort& X, int data_id, int mb_idx) override;

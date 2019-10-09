@@ -57,7 +57,7 @@ public:
   El::Device get_device_allocation() const override { return Device; }
 
   description get_description() const override {
-    auto&& desc = Layer::get_description();
+    auto desc = Layer::get_description();
     desc.add("alpha", m_alpha);
     return desc;
   }
@@ -75,6 +75,15 @@ private:
   DataType m_alpha;
 
 };
+
+#ifndef LBANN_ELU_LAYER_INSTANTIATE
+extern template class elu_layer<data_layout::DATA_PARALLEL, El::Device::CPU>;
+extern template class elu_layer<data_layout::MODEL_PARALLEL, El::Device::CPU>;
+#ifdef LBANN_HAS_GPU
+extern template class elu_layer<data_layout::DATA_PARALLEL, El::Device::GPU>;
+extern template class elu_layer<data_layout::MODEL_PARALLEL, El::Device::GPU>;
+#endif // LBANN_HAS_GPU
+#endif // LBANN_ELU_LAYER_INSTANTIATE
 
 } // namespace lbann
 

@@ -1,11 +1,13 @@
+trainer {
+  block_size: 256
+  procs_per_trainer: 0
+  num_parallel_readers: 0
+}
 model {
   name: "directed_acyclic_graph_model"
   data_layout: "data_parallel"
   mini_batch_size: 256
-  block_size: 256
   num_epochs: 10
-  num_parallel_readers: 0
-  procs_per_trainer: 0
 
   ###################################################
   # Objective function
@@ -111,7 +113,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -185,7 +187,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -224,7 +226,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -277,7 +279,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -330,7 +332,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -399,7 +401,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -452,7 +454,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -505,7 +507,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -574,7 +576,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -627,7 +629,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -680,7 +682,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -749,7 +751,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -788,7 +790,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -841,7 +843,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -894,7 +896,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -963,7 +965,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1016,7 +1018,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1069,7 +1071,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1138,7 +1140,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1191,7 +1193,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1244,7 +1246,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1313,7 +1315,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1366,7 +1368,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1419,7 +1421,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1488,7 +1490,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1527,7 +1529,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1580,7 +1582,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1633,7 +1635,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1702,7 +1704,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1755,7 +1757,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1808,7 +1810,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1877,7 +1879,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1930,7 +1932,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -1983,7 +1985,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2052,7 +2054,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2105,7 +2107,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2158,7 +2160,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2227,7 +2229,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2280,7 +2282,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2333,7 +2335,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2402,7 +2404,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2455,7 +2457,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2508,7 +2510,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2577,7 +2579,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2616,7 +2618,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2669,7 +2671,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2722,7 +2724,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2791,7 +2793,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2844,7 +2846,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2897,7 +2899,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -2966,7 +2968,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -3019,7 +3021,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1
@@ -3072,7 +3074,7 @@ model {
       scale_init: 1.0
       bias_init: 0.0
       epsilon: 1e-5
-      stats_aggregation: "global"
+      statistics_group_size: -1
     }
     parallel_strategy {
       sample_groups: 1

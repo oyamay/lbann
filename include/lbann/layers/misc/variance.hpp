@@ -69,7 +69,7 @@ public:
   El::Device get_device_allocation() const override { return Device; }
 
   description get_description() const override {
-    auto&& desc = Layer::get_description();
+    auto desc = Layer::get_description();
     desc.add("Biased", m_biased);
     return desc;
   }
@@ -116,6 +116,19 @@ private:
   std::unique_ptr<AbsDistMat> m_workspace;
 
 };
+
+#ifndef LBANN_VARIANCE_LAYER_INSTANTIATE
+extern template class variance_layer<
+  data_layout::DATA_PARALLEL, El::Device::CPU>;
+extern template class variance_layer<
+  data_layout::MODEL_PARALLEL, El::Device::CPU>;
+#ifdef LBANN_HAS_GPU
+extern template class variance_layer<
+  data_layout::DATA_PARALLEL, El::Device::GPU>;
+extern template class variance_layer<
+  data_layout::MODEL_PARALLEL, El::Device::GPU>;
+#endif // LBANN_HAS_GPU
+#endif // LBANN_VARIANCE_LAYER_INSTANTIATE
 
 } // namespace lbann
 

@@ -24,6 +24,7 @@
 // permissions and limitations under the license.
 ////////////////////////////////////////////////////////////////////////////////
 
+#define LBANN_EVALUATION_LAYER_INSTANTIATE
 #include "lbann/layers/transform/evaluation.hpp"
 #include "lbann/utils/exception.hpp"
 #ifdef LBANN_HAS_GPU
@@ -63,8 +64,7 @@ void fp_cpu(lbann_comm& comm,
 void fp_gpu(lbann_comm& comm,
             const AbsDistMat& input,
             DataType& value,
-            cuda::event_wrapper& copy_event,
-            execution_mode mode) {
+            cuda::event_wrapper& copy_event) {
   constexpr DataType zero = 0;
   constexpr DataType one = 1;
 
@@ -203,7 +203,7 @@ void abstract_evaluation_layer::fp_compute() {
 #ifdef LBANN_HAS_GPU
   case El::Device::GPU:
     fp_gpu(*get_comm(), get_prev_activations(), m_value(0, 0),
-           m_copy_event, get_model()->get_execution_mode());
+           m_copy_event);
     break;
 #endif // LBANN_HAS_GPU
   default: LBANN_ERROR("invalid device");
@@ -242,5 +242,12 @@ abstract_evaluation_layer::construct(lbann_comm *comm,
   return nullptr;
 
 }
+
+template class evaluation_layer<data_layout::DATA_PARALLEL, El::Device::CPU>;
+template class evaluation_layer<data_layout::MODEL_PARALLEL, El::Device::CPU>;
+#ifdef LBANN_HAS_GPU
+template class evaluation_layer<data_layout::DATA_PARALLEL, El::Device::GPU>;
+template class evaluation_layer<data_layout::MODEL_PARALLEL, El::Device::GPU>;
+#endif // LBANN_HAS_GPU
 
 } // namespace lbann
