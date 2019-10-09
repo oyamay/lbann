@@ -771,11 +771,17 @@ void Layer::setup_matrices(const El::Grid& grid) {
   }
 }
 
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 template <typename TAbsDistMat>
 std::unique_ptr<TAbsDistMat> Layer::construct_matrix_t(const El::Grid& grid,
                                                        std::string type,
                                                        El::Int index) {
 
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+std::unique_ptr<AbsDistMat> Layer::construct_matrix(const El::Grid& grid,
+                                                    std::string type,
+                                                    El::Int index) {
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   // Choose matrix distribution
   El::Distribution col_dist, row_dist;
   El::DistWrap wrap;
@@ -795,9 +801,15 @@ std::unique_ptr<TAbsDistMat> Layer::construct_matrix_t(const El::Grid& grid,
   }
 
   // Construct matrix
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   std::unique_ptr<TAbsDistMat> mat;
   mat.reset(TAbsDistMat::Instantiate(grid, 0,
                                      col_dist, row_dist, wrap, device));
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+  std::unique_ptr<AbsDistMat> mat;
+  mat.reset(AbsDistMat::Instantiate(grid, 0,
+                                    col_dist, row_dist, wrap, device));
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 
 #ifdef LBANN_HAS_GPU
   // Allocate GPU memory with the CUDA API
@@ -809,12 +821,14 @@ std::unique_ptr<TAbsDistMat> Layer::construct_matrix_t(const El::Grid& grid,
   return mat;
 }
 
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 template std::unique_ptr<AbsDistMat> Layer::construct_matrix_t(const El::Grid& grid,
                                                                std::string type,
                                                                El::Int index);
 template std::unique_ptr<AbsDistMatShort> Layer::construct_matrix_t(const El::Grid& grid,
                                                                     std::string type,
                                                                     El::Int index);
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 
 void Layer::setup_data() {
   // Get mini-batch size

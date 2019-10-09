@@ -41,7 +41,11 @@ class fetch_data_functor {
   fetch_data_functor (data_reader_target_mode target_mode) :
     _target_mode(target_mode) {}
   int operator() (CPUMatIO& samples, CPUMat& responses, El::Matrix<El::Int>& indices_fetched, generic_data_reader* data_reader) const {
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     int num_samples_fetched = data_reader->fetch_data_t(samples, indices_fetched);
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+    int num_samples_fetched = data_reader->fetch_data(samples, indices_fetched);
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     int num_responses_fetched;
     switch(_target_mode) {
     case data_reader_target_mode::REGRESSION:
@@ -65,7 +69,11 @@ class fetch_data_functor {
     return num_samples_fetched;
   }
   int operator() (CPUMatIO& samples, El::Matrix<El::Int>& indices_fetched, generic_data_reader* data_reader) const {
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     int num_samples_fetched = data_reader->fetch_data_t(samples, indices_fetched);
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+    int num_samples_fetched = data_reader->fetch_data(samples, indices_fetched);
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     switch(_target_mode) {
     case data_reader_target_mode::NA:
       break;

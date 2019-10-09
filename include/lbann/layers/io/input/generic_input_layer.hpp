@@ -58,8 +58,10 @@ class generic_input_layer : public io_layer {
               data_reader_target_mode dr_mode = data_reader_target_mode::CLASSIFICATION)
     : io_layer(comm, data_set_spans_models, dr_mode),
       m_io_buffers(),
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
       m_io_activation_data(),
       m_io_activation_responses(),
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
       m_training_dataset(),
       m_testing_dataset(),
       m_validation_dataset(),
@@ -117,6 +119,7 @@ class generic_input_layer : public io_layer {
     for (auto& dr : m_data_readers) {
       dr.second = dr.second->copy();
     }
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     if(other.m_io_activation_data)
       m_io_activation_data.reset(other.m_io_activation_data->Copy());
     else
@@ -125,6 +128,7 @@ class generic_input_layer : public io_layer {
       m_io_activation_responses.reset(other.m_io_activation_responses->Copy());
     else
       m_io_activation_responses = nullptr;
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   }
 
   generic_input_layer& operator=(const generic_input_layer& other) {
@@ -135,6 +139,7 @@ class generic_input_layer : public io_layer {
     for (auto& dr : m_data_readers) {
       dr.second = dr.second->copy();
     }
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     if(other.m_io_activation_data)
       m_io_activation_data.reset(other.m_io_activation_data->Copy());
     else
@@ -143,6 +148,7 @@ class generic_input_layer : public io_layer {
       m_io_activation_responses.reset(other.m_io_activation_responses->Copy());
     else
       m_io_activation_responses = nullptr;
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     return *this;
   }
 
@@ -175,6 +181,7 @@ class generic_input_layer : public io_layer {
       output.Resize(output.Height(), max_mb_size);
     }
 
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     // Setup I/O activations
     assert(m_io_activation_data == nullptr);
     m_io_activation_data = construct_matrix_t<AbsDistMatIO>(m_comm->get_trainer_grid(), "output", 0);
@@ -184,6 +191,7 @@ class generic_input_layer : public io_layer {
     if(get_num_children() >= 2)
       m_io_activation_responses->Resize(get_activations(1).Height(),
                                         get_activations(1).Width());
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 
     auto num_io_threads = this->m_model->get_io_thread_pool()->get_num_threads();
     /// BVE FIXME foreach data reader
@@ -327,9 +335,17 @@ class generic_input_layer : public io_layer {
 
       update_num_samples_processed(num_samples_in_batch);
       if(m_expected_num_child_layers == 1) {
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
         io_buffer->distribute_from_local_matrix(get_data_reader(), mode, *m_io_activation_data);
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+        io_buffer->distribute_from_local_matrix(get_data_reader(), mode, get_activations(0));
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
       }else {
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
         io_buffer->distribute_from_local_matrix(get_data_reader(), mode, *m_io_activation_data, *m_io_activation_responses);
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+        io_buffer->distribute_from_local_matrix(get_data_reader(), mode, get_activations(0), get_activations(1));
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
       }
     }else {
           LBANN_ERROR("could not fp_compute for I/O layers : encoutered generic_io_buffer type");
@@ -942,8 +958,10 @@ class generic_input_layer : public io_layer {
 
  protected:
   std::vector<generic_io_buffer*> m_io_buffers;
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   std::unique_ptr<AbsDistMatIO> m_io_activation_data;
   std::unique_ptr<AbsDistMat> m_io_activation_responses;
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   io_buffer_map_t m_active_buffer;
 
   dataset m_training_dataset;
@@ -1131,7 +1149,9 @@ class generic_input_layer : public io_layer {
       return;
     }
 
-    assert(!m_background_shuffle); // FIXME
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+    assert(!m_background_shuffle);
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 
     assert_eq(mb_size, get_activations().Width());
     input_view.set_outermost_dimension(mb_size);
@@ -1142,10 +1162,10 @@ class generic_input_layer : public io_layer {
     assert0(dc::tensor::View(
         input_view,
         m_io_activation_data->LockedBuffer()));
-#else
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     assert0(dc::tensor::View(
         input_view,
-        m_io_activation_data->LockedBuffer()));
+        get_activations().LockedBuffer()));
 #endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 
     dc::MPIPrintStreamDebug()
@@ -1188,9 +1208,11 @@ class generic_input_layer : public io_layer {
     // Note: no copy out for activation is necessary as the original
     // LBANN tensor is valid.
 
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     // Copy responses if available
     if(get_num_children() >= 2 && m_io_activation_responses->Buffer() != nullptr)
       El::Copy(*m_io_activation_responses, get_activations(1));
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   }
 
   void fp_compute_distconv_background(int active_buffer, execution_mode mode) {
@@ -1203,16 +1225,28 @@ class generic_input_layer : public io_layer {
     auto buf = io_buffer->get_data_buffer(mode);
     assert_always(buf != nullptr);
 
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     dc::MPIPrintStreamDebug()
         << __FUNCTION__ << "; active bufer: "
         << active_buffer << ", mode: " << (int)mode
         << ", input shape: " << buf->m_input_data_buffer->LocalHeight()
         << "x" << buf->m_input_data_buffer->LocalWidth();
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+    dc::MPIPrintStreamDebug()
+        << __FUNCTION__ << "; active bufer: "
+        << active_buffer << ", mode: " << (int)mode
+        << ", input shape: " << buf->m_input_buffers[0]->LocalHeight()
+        << "x" << buf->m_input_buffers[0]->LocalWidth();
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 
     auto &input_view = m_input_views.at(active_buffer);
     auto &input_tensor = m_input_tensors.at(active_buffer);
 
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     const int mb_size = buf->m_input_data_buffer->Width();
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+    const int mb_size = buf->m_input_buffers[0]->Width();
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     input_view.set_outermost_dimension(mb_size);
     input_tensor.set_outermost_dimension(mb_size);
 
@@ -1221,10 +1255,10 @@ class generic_input_layer : public io_layer {
     assert0(dc::tensor::View(
         input_view,
         buf->m_input_data_buffer->LockedBuffer()));
-#else
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     assert0(dc::tensor::View(
         input_view,
-        buf->m_input_data_buffer->LockedBuffer()));
+        buf->m_input_buffers[0]->LockedBuffer()));
 #endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 
     dc::MPIPrintStreamDebug()

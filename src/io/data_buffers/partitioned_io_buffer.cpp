@@ -62,6 +62,7 @@ lbann::partitioned_io_buffer& lbann::partitioned_io_buffer::operator=(const lban
 }
 
 void lbann::partitioned_io_buffer::fp_setup_data(El::Int cur_mini_batch_size, int idx) {
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   assert(idx == 0 || idx == 1);
   for (auto& buf : m_data_buffers) {
     if(idx == 0)
@@ -69,6 +70,11 @@ void lbann::partitioned_io_buffer::fp_setup_data(El::Int cur_mini_batch_size, in
     else
       buf.second->m_input_response_buffer->Resize(buf.second->m_input_response_buffer->Height(), cur_mini_batch_size);
   }
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+  for (auto& buf : m_data_buffers) {
+    buf.second->m_input_buffers[idx]->Resize(buf.second->m_input_buffers[idx]->Height(), cur_mini_batch_size);
+  }
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 }
 
 void lbann::partitioned_io_buffer::setup_data(El::Int num_neurons, El::Int num_targets, El::Int max_mini_batch_size) {
@@ -79,10 +85,24 @@ void lbann::partitioned_io_buffer::setup_data(El::Int num_neurons, El::Int num_t
   }
   for (const auto& it : m_data_buffers) {
     data_buffer *data_buffer = it.second;
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     if(data_buffer->m_input_data_buffer != nullptr)
       data_buffer->m_input_data_buffer->Resize(num_neurons, max_mini_batch_size);
     if(data_buffer->m_input_response_buffer != nullptr)
       data_buffer->m_input_response_buffer->Resize(num_targets, max_mini_batch_size);
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+    int i = 0;
+    for (const auto& buf : data_buffer->m_input_buffers) {
+      if(i == 0) {
+        buf->Resize(num_neurons, max_mini_batch_size);
+      } else if(i == 1) {
+        buf->Resize(num_targets, max_mini_batch_size);
+      } else {
+        LBANN_ERROR("Unsupported number of input channels");
+      }
+      i++;
+    }
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     /// The amount of space needed will vary based on input layer type,
     /// but the batch size is the maximum space necessary
     El::Zeros_seq(data_buffer->m_indices_fetched_per_mb, local_mini_batch_size, 1);
@@ -97,23 +117,41 @@ int lbann::partitioned_io_buffer::fetch_to_local_matrix(generic_data_reader *dat
   /// Check to make sure that the local matrix has space for data
   data_buffer *buf = get_data_buffer(mode);
   buf->m_num_samples_fetched = 0;
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   if (m_comm->get_rank_in_trainer() < num_parallel_readers && (buf->m_input_data_buffer->Height() != 0 && buf->m_input_data_buffer->Width() != 0)) {
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+  if (m_comm->get_rank_in_trainer() < num_parallel_readers && (buf->m_input_buffers[0]->Height() != 0 && buf->m_input_buffers[0]->Width() != 0)) {
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 #ifndef LBANN_IO_DISABLE_ZEROS
     prof_region_begin("fetch_to_local_matrix_zeros", prof_colors[3], false);
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     if(buf->m_input_data_buffer != nullptr)
       El::Zeros_seq(*buf->m_input_data_buffer, buf->m_input_data_buffer->Height(), buf->m_input_data_buffer->Width());
     if(buf->m_input_response_buffer != nullptr)
       El::Zeros_seq(*buf->m_input_response_buffer, buf->m_input_response_buffer->Height(), buf->m_input_response_buffer->Width());
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+    for(auto& m : buf->m_input_buffers) {
+      El::Zeros_seq(*m, m->Height(), m->Width());
+    }
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     prof_region_end("fetch_to_local_matrix_zeros", false);
 #endif // LBANN_IO_DISABLE_ZEROS
 
     /// Each data reader needs to either have independent / split
     /// data, or take an offset / stride
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     if(buf->m_input_response_buffer != nullptr) {
       buf->m_num_samples_fetched = (*fetch_data_fn)(buf->m_input_data_buffer->Matrix(), buf->m_input_response_buffer->Matrix(), buf->m_indices_fetched_per_mb, data_reader);
     }else {
       buf->m_num_samples_fetched = (*fetch_data_fn)(buf->m_input_data_buffer->Matrix(), buf->m_indices_fetched_per_mb, data_reader);
     }
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+    if(buf->m_input_buffers.size() == 2) {
+      buf->m_num_samples_fetched = (*fetch_data_fn)(buf->m_input_buffers[0]->Matrix(), buf->m_input_buffers[1]->Matrix(), buf->m_indices_fetched_per_mb, data_reader);
+    }else {
+      buf->m_num_samples_fetched = (*fetch_data_fn)(buf->m_input_buffers[0]->Matrix(), buf->m_indices_fetched_per_mb, data_reader);
+    }
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     bool data_valid = (buf->m_num_samples_fetched > 0);
     if(data_valid) {
       //      m_num_data_per_epoch+=num_samples_fetched; /// BVE FIXME need to change how this is shared
@@ -125,15 +163,24 @@ int lbann::partitioned_io_buffer::fetch_to_local_matrix(generic_data_reader *dat
 
 void lbann::partitioned_io_buffer::distribute_from_local_matrix(generic_data_reader *data_reader, execution_mode mode, AbsDistMatIO& sample, AbsDistMat& response) {
   data_buffer *buf = get_data_buffer(mode);
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   Copy(*buf->m_input_data_buffer, sample);
   Copy(*buf->m_input_response_buffer, response);
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+  Copy(*buf->m_input_buffers[0], sample);
+  Copy(*buf->m_input_buffers[1], response);
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   buf->m_num_samples_fetched = 0;
   return;
 }
 
 void lbann::partitioned_io_buffer::distribute_from_local_matrix(generic_data_reader *data_reader, execution_mode mode, AbsDistMatIO& sample) {
   data_buffer *buf = get_data_buffer(mode);
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   Copy(*buf->m_input_data_buffer, sample);
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+  Copy(*buf->m_input_buffers[0], sample);
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   buf->m_num_samples_fetched = 0;
   return;
 }

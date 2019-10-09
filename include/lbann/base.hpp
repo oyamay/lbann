@@ -73,11 +73,11 @@ world_comm_ptr initialize(int& argc, char**& argv, int seed = -1);
 void finalize(lbann_comm* comm = nullptr);
 
 #ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
-// Cosmoflow samples are kept stored in int16
+// Cosmoflow samples are stored in int16
 using DataTypeIO = short;
-#else
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 using DataTypeIO = DataType;
-#endif
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 
 // Typedefs for Elemental matrices
 using AbsMat = El::AbstractMatrix<DataType>;

@@ -36,34 +36,65 @@ class data_buffer {
   /** Number of samples in the current mini-batch */
   int m_num_samples_fetched;
   /** Distributed matrix used to stage local data to layer output */
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   std::unique_ptr<AbsDistMatIO> m_input_data_buffer;
   std::unique_ptr<AbsDistMat> m_input_response_buffer;
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+  std::vector<std::unique_ptr<AbsDistMat>> m_input_buffers;
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   std::atomic<bool> m_fetch_data_in_background;
   std::future<void> m_data_fetch_future;
   /// 1-D Matrix of which indices were fetched in this mini-batch
   El::Matrix<El::Int> m_indices_fetched_per_mb;
 
   data_buffer(lbann_comm *comm, int num_child_layers) :
-    m_num_samples_fetched(0), m_fetch_data_in_background(false)
+      m_num_samples_fetched(0), m_fetch_data_in_background(false)
   {
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     assert(num_child_layers == 1 || num_child_layers == 2);
     m_input_data_buffer.reset(new StarVCMatIO<El::Device::CPU>(comm->get_trainer_grid()));
     if(num_child_layers == 2)
       m_input_response_buffer.reset(new StarVCMat<El::Device::CPU>(comm->get_trainer_grid()));
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+    m_input_buffers.clear();
+    m_input_buffers.resize(num_child_layers);
+    for(int i = 0; i < num_child_layers; i++) {
+      m_input_buffers[i].reset(new StarVCMat<El::Device::CPU>(comm->get_trainer_grid()));
+    }
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   }
 
   data_buffer(const data_buffer& other) :
-    m_num_samples_fetched(other.m_num_samples_fetched)
+      m_num_samples_fetched(other.m_num_samples_fetched)
   {
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     m_fetch_data_in_background.store(other.m_fetch_data_in_background);
     m_input_data_buffer = std::unique_ptr<AbsDistMatIO>(other.m_input_data_buffer ? other.m_input_data_buffer->Copy() : nullptr);
     m_input_response_buffer = std::unique_ptr<AbsDistMat>(other.m_input_response_buffer ? other.m_input_response_buffer->Copy() : nullptr);
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+    m_fetch_data_in_background.store(other.m_fetch_data_in_background);
+    m_input_buffers.clear();
+    m_input_buffers.reserve(other.m_input_buffers.size());
+    for (const auto& ptr : other.m_input_buffers) {
+      m_input_buffers.emplace_back(ptr ? ptr->Copy() : nullptr);
+    }
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   }
   data_buffer& operator=(const data_buffer& other) {
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     m_num_samples_fetched = other.m_num_samples_fetched;
     m_fetch_data_in_background.store(other.m_fetch_data_in_background);
     m_input_data_buffer = std::unique_ptr<AbsDistMatIO>(other.m_input_data_buffer ? other.m_input_data_buffer->Copy() : nullptr);
     m_input_response_buffer = std::unique_ptr<AbsDistMat>(other.m_input_response_buffer ? other.m_input_response_buffer->Copy() : nullptr);
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+    m_num_samples_fetched = other.m_num_samples_fetched;
+    m_fetch_data_in_background.store(other.m_fetch_data_in_background);
+    m_input_buffers.clear();
+    m_input_buffers.reserve(other.m_input_buffers.size());
+    for (const auto& ptr : other.m_input_buffers) {
+      m_input_buffers.emplace_back(ptr ? ptr->Copy() : nullptr);
+    }
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
     return *this;
   }
   data_buffer* copy() const { return new data_buffer(*this); }

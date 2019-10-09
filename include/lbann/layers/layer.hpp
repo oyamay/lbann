@@ -432,6 +432,7 @@ protected:
    *  "gradient_wrt_input".
    */
 
+#ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   template <typename TAbsDistMat>
   std::unique_ptr<TAbsDistMat> construct_matrix_t(const El::Grid& grid,
                                                   std::string type,
@@ -441,6 +442,11 @@ protected:
                                                        El::Int index) {
     return construct_matrix_t<AbsDistMat>(grid, type, index);
   }
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+  virtual std::unique_ptr<AbsDistMat> construct_matrix(const El::Grid& grid,
+                                                       std::string type,
+                                                       El::Int index);
+#endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
   /** Setup layer data.
    *  Called by the 'setup' function. Memory is allocated for
    *  distributed matrices.

@@ -207,10 +207,10 @@ void numpy_npz_conduit_reader::preload_data_store() {
 
 #ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
 bool numpy_npz_conduit_reader::fetch_datum_short(CPUMatShort& X, int data_id, int mb_idx) {
-#else
-bool numpy_npz_conduit_reader::fetch_datum(CPUMat& X, int data_id, int mb_idx) {
+#else // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
+bool numpy_npz_conduit_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
 #endif // LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
-  CPUMatIO X_v = El::View(X, El::IR(0, X.Height()), El::IR(mb_idx, mb_idx+1));
+  auto X_v = El::View(X, El::IR(0, X.Height()), El::IR(mb_idx, mb_idx+1));
   conduit::Node node;
   if (data_store_active()) {
     const conduit::Node& ds_node = m_data_store->get_conduit_node(data_id);
