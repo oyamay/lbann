@@ -341,7 +341,7 @@ fi
 if [ ${USE_MODULES} -ne 0 ]; then
     module load git
     module use /usr/workspace/wsb/brain/utils/coral/modulefiles
-    module load cmake/3.14.0
+    module load cmake/3.14.5
 else
     use git
 fi

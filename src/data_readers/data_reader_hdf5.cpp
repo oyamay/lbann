@@ -33,6 +33,8 @@
 #include <iostream>
 #include <cstring>
 #include "lbann/utils/distconv.hpp"
+#include "conduit/conduit_relay.hpp"
+#include "conduit/conduit_relay_io_hdf5.hpp"
 
 namespace {
 inline hid_t check_hdf5(hid_t hid, const char *file, int line) {
@@ -54,7 +56,43 @@ namespace lbann {
   hdf5_reader::hdf5_reader(const bool shuffle)
     : generic_data_reader(shuffle) {}
 
-  void hdf5_reader::read_hdf5(hsize_t h_data, hsize_t filespace, int rank, std::string key, hsize_t* dims, DataType * data_out) {
+hdf5_reader::hdf5_reader(const hdf5_reader& rhs)  : generic_data_reader(rhs) {
+  copy_members(rhs);
+}
+
+hdf5_reader& hdf5_reader::operator=(const hdf5_reader& rhs) {
+  // check for self-assignment
+  if (this == &rhs) {
+    return (*this);
+  }
+  generic_data_reader::operator=(rhs);
+  copy_members(rhs);
+  return (*this);
+}
+
+
+void hdf5_reader::copy_members(const hdf5_reader &rhs) {
+  if(rhs.m_data_store != nullptr) {
+      m_data_store = new data_store_conduit(rhs.get_data_store());
+  }
+  m_data_store->set_data_reader_ptr(this);
+
+  m_has_labels = rhs.m_has_labels;
+  m_has_responses = rhs.m_has_responses;
+  m_num_features = rhs.m_num_features;
+  m_num_response_features = rhs.m_num_response_features;
+  m_data_dims = rhs.m_data_dims;
+  m_comm = rhs.m_comm;
+  m_data_dims = rhs.m_data_dims;
+  m_scaling_factor_int16 = rhs.m_scaling_factor_int16;
+  m_file_paths = rhs.m_file_paths;
+
+  for(size_t i = 0; i < 4 /*rhs.m_all_responses.size()*/; i++) {
+    m_all_responses[i] = rhs.m_all_responses[i];
+  }
+}
+
+  void hdf5_reader::read_hdf5_hyperslab(hsize_t h_data, hsize_t filespace, int rank, std::string key, hsize_t* dims, conduit::Node& sample) {
     // this is the splits, right now it is hard coded to split along the z axis
     int num_io_parts = dc::get_number_of_io_partitions();
     int ylines = 1;
@@ -86,13 +124,73 @@ namespace lbann {
 
     //todo add error checking
     H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, dims_local);
-    H5Dread(h_data, H5T_NATIVE_SHORT, memspace, filespace, H5P_DEFAULT, data_out);
+    sample.set(conduit::DataType::uint16(xPerNode * yPerNode * zPerNode * cPerNode));
+
+    unsigned short* buf = sample.value();
+    H5Dread(h_data, H5T_NATIVE_SHORT, memspace, filespace, H5P_DEFAULT, buf);
+  }
+
+  void hdf5_reader::read_hdf5_sample(int data_id, conduit::Node& sample) {
+    //int world_rank = get_rank_in_world();
+    int world_rank = dc::get_input_rank(*get_comm()); // Should probably be trainer rank
+    auto file = m_file_paths[data_id];
+    hid_t h_file = H5Fopen(file.c_str(), H5F_ACC_RDONLY, m_fapl);
+
+#if 0
+    dc::MPIPrintStreamInfo() << "HDF5 file opened: "
+                             << file;
+#endif
+
+    if (h_file < 0) {
+      throw lbann_exception(std::string{} + __FILE__ + " " + std::to_string(__LINE__) +
+                            " hdf5_reader::load() - can't open file : " + file);
+    }
+
+    // load in dataset
+    hid_t h_data = CHECK_HDF5(
+                              H5Dopen(h_file, HDF5_KEY_DATA.c_str(), H5P_DEFAULT));
+    hid_t filespace = CHECK_HDF5(H5Dget_space(h_data));
+    //get the number of dimesnionse from the dataset
+    int rank1 = H5Sget_simple_extent_ndims(filespace);
+    hsize_t dims[rank1];
+    // read in what the dimensions are
+    CHECK_HDF5(H5Sget_simple_extent_dims(filespace, dims, NULL));
+
+    if (h_data < 0) {
+      throw lbann_exception(std::string{} + __FILE__ + " " + std::to_string(__LINE__) +
+                            " hdf5_reader::load() - can't find hdf5 key : " + HDF5_KEY_DATA);
+    }
+
+    const std::string conduit_obj = LBANN_DATA_ID_STR(data_id);
+    conduit::Node slab;
+    read_hdf5_hyperslab(h_data, filespace, world_rank, HDF5_KEY_DATA, dims, slab);
+    sample[conduit_obj+"/slab"] = slab;
+    //close data set
+    H5Dclose(h_data);
+
+    if (m_has_responses) {
+      h_data = H5Dopen(h_file, HDF5_KEY_RESPONSES.c_str(), H5P_DEFAULT);
+      H5Dread(h_data, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, m_all_responses);
+      // conduit::Node work;
+      // conduit::relay::io::hdf5_read(h_data, HDF5_KEY_RESPONSES.c_str(), work);
+      //      node[conduit_obj+"/responses"].set(conduit::DataType::c_float(4));
+      sample[conduit_obj+"/responses"].set(m_all_responses, 4);
+      H5Dclose(h_data);
+    }
+    H5Fclose(h_file);
+    return;
   }
 
   void hdf5_reader::load() {
     lbann_comm* l_comm = get_comm();
+    if(dc::get_rank_stride() != 1) {
+      LBANN_ERROR("HDF5 MPI-IO data reader requires DistConv rank stride = 1");
+    }
+    // const El::mpi::Comm & w_comm = l_comm->get_world_comm();
+    // MPI_Comm mpi_comm = w_comm.GetMPIComm();
+    // int world_rank = get_rank_in_world();
     MPI_Comm mpi_comm = dc::get_input_comm(*l_comm);
-    int world_rank = dc::get_input_rank(*l_comm);
+    int world_rank = dc::get_input_rank(*l_comm); // Should probably be trainer rank
     int color = world_rank/dc::get_number_of_io_partitions();
     MPI_Comm_split(mpi_comm, color, world_rank, &m_comm);
     m_shuffled_indices.clear();
@@ -108,6 +206,7 @@ namespace lbann {
                                      m_data_dims.end(),
                                      (size_t) 1,
                                      std::multiplies<size_t>());
+
 #ifdef DATA_READER_HDF5_USE_MPI_IO
     m_fapl = H5Pcreate(H5P_FILE_ACCESS);
     CHECK_HDF5(H5Pset_fapl_mpio(m_fapl, m_comm, MPI_INFO_NULL));
@@ -117,6 +216,28 @@ namespace lbann {
     m_fapl = H5P_DEFAULT;
     m_dxpl = H5P_DEFAULT;
 #endif
+    std::vector<int> local_list_sizes;
+    options *opts = options::get();
+    if (opts->get_bool("preload_data_store")) {
+      LBANN_ERROR("preload_data_store not supported on HDF5 data reader");
+#if 0
+      int np = l_comm->get_procs_per_trainer();
+      int base_files_per_rank = m_shuffled_indices.size() / np;
+      int extra = m_shuffled_indices.size() - (base_files_per_rank*np);
+      if (extra > np) {
+        LBANN_ERROR("extra > np");
+      }
+      local_list_sizes.resize(np, 0);
+      for (int j=0; j<np; j++) {
+        local_list_sizes[j] = base_files_per_rank;
+        if (j < extra) {
+          local_list_sizes[j] += 1;
+        }
+      }
+#endif
+    }
+    instantiate_data_store(local_list_sizes);
+
     select_subset_of_data();
   }
   bool hdf5_reader::fetch_label(Mat& Y, int data_id, int mb_idx) {
@@ -124,76 +245,32 @@ namespace lbann {
   }
   bool hdf5_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
     prof_region_begin("fetch_datum", prof_colors[0], false);
-    int world_rank = dc::get_input_rank(*get_comm());
-
-    auto file = m_file_paths[data_id];
-    hid_t h_file = H5Fopen(file.c_str(), H5F_ACC_RDONLY, m_fapl);
-
-#if 0
-    dc::MPIPrintStreamInfo() << "HDF5 file opened: "
-                             << file;
-#endif
-
-    if (h_file < 0) {
-      throw lbann_exception(std::string{} + __FILE__ + " " + std::to_string(__LINE__) +
-          " hdf5_reader::load() - can't open file : " + file);
-    }
-
-    // load in dataset
-    hid_t h_data = CHECK_HDF5(
-        H5Dopen(h_file, HDF5_KEY_DATA.c_str(), H5P_DEFAULT));
-    hid_t filespace = CHECK_HDF5(H5Dget_space(h_data));
-    //get the number of dimesnionse from the dataset
-    int rank1 = H5Sget_simple_extent_ndims(filespace);
-    hsize_t dims[rank1];
-    // read in what the dimensions are
-    CHECK_HDF5(H5Sget_simple_extent_dims(filespace, dims, NULL));
-
-    if (h_data < 0) {
-      throw lbann_exception(std::string{} + __FILE__ + " " + std::to_string(__LINE__) +
-          " hdf5_reader::load() - can't find hdf5 key : " + HDF5_KEY_DATA);
-    }
 
     // In the Cosmoflow case, each minibatch should have only one
     // sample per rank.
     assert_eq(X.Width(), 1);
     // Assuming 512^3 samples
     assert_eq(X.Height(),
-              512 * 512 * 512 * 4 / dc::get_number_of_io_partitions()
+               512 * 512 * 512 * 4 / dc::get_number_of_io_partitions()
               / (sizeof(DataType) / sizeof(short)));
 
-    DataType *dest = X.Buffer();
-    read_hdf5(h_data, filespace, world_rank, HDF5_KEY_DATA, dims, dest);
-    //close data set
-    H5Dclose(h_data);
-    if (m_has_responses) {
-      h_data = H5Dopen(h_file, HDF5_KEY_RESPONSES.c_str(), H5P_DEFAULT);
-      H5Dread(h_data, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, m_all_responses);
-      H5Dclose(h_data);
+    // Create a node to hold all of the data
+    conduit::Node node;
+    if (data_store_active()) {
+      const conduit::Node& ds_node = m_data_store->get_conduit_node(data_id);
+      node.set_external(ds_node);
+    }else {
+      read_hdf5_sample(data_id, node);
+      if (priming_data_store()) {
+        // Once the node has been populated save it in the data store
+        m_data_store->set_conduit_node(data_id, node);
+      }
     }
-    H5Fclose(h_file);
+    const std::string conduit_obj = LBANN_DATA_ID_STR(data_id);
+    conduit::Node slab = node[conduit_obj+"/slab"];
+    unsigned short *data = slab.value();
+    std::memcpy(X.Buffer(), data, slab.dtype().number_of_elements()*slab.dtype().element_bytes());
 
-    //TODO do i need this?
-    // not if I pass a ref to X I dont think
-    //this should be equal to num_nuerons/LBANN_NUM_IO_PARTITIONS
-    //unsigned long int pixelcount = m_image_width*m_image_height*m_image_depth*m_image_num_channels;
-    // #ifdef LBANN_DISTCONV_COSMOFLOW_KEEP_INT16
-    //    std::memcpy(dest,data, sizeof(short)*pixelcount);
-    // #else
-    //    LBANN_OMP_PARALLEL_FOR
-    //       for(int p = 0; p<pixelcount; p++) {
-    //TODO what is m_scaling_factor_int16
-    //           dest[p] = tmp[p] * m_scaling_factor_int16;
-    // mash this with above
-    //X.Set(p, mb_idx,*tmp++);
-    //       }
-    // #endif
-    //auto pixel_col = X(El::IR(0, X.Height()), El::IR(mb_idx, mb_idx+1));
-    //std::vector<size_t> dims = {
-    //  1ull,
-    //  static_cast<size_t>(m_image_height),
-    //  static_cast<size_t>(m_image_width)};
-    //m_transform_pipeline.apply(pixel_col, dims);
     prof_region_end("fetch_datum", false);
     return true;
   }
@@ -201,8 +278,20 @@ namespace lbann {
   bool hdf5_reader::fetch_response(Mat& Y, int data_id, int mb_idx) {
     prof_region_begin("fetch_response", prof_colors[0], false);
     assert_eq(Y.Height(), 4);
-    std::memcpy(Y.Buffer(), &m_all_responses,
+    float *buf;
+    // Create a node to hold all of the data
+    conduit::Node node;
+    if (data_store_active()) {
+      const conduit::Node& ds_node = m_data_store->get_conduit_node(data_id);
+      node.set_external(ds_node);
+      const std::string conduit_obj = LBANN_DATA_ID_STR(data_id);
+      buf = node[conduit_obj+"/responses"].value();
+    }else {
+      buf = m_all_responses;
+    }
+    std::memcpy(Y.Buffer(), buf,
                 m_num_response_features*sizeof(DataType));
+
     prof_region_end("fetch_response", false);
     return true;
   }

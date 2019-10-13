@@ -17,6 +17,7 @@
 #define LBANN_DATA_READER_HDF5_HPP
 #include "data_reader_image.hpp"
 #include "hdf5.h"
+#include "conduit/conduit.hpp"
 
 namespace lbann {
 /**
@@ -25,7 +26,13 @@ namespace lbann {
 class hdf5_reader : public generic_data_reader {
  public:
   hdf5_reader(const bool shuffle);
+  hdf5_reader(const hdf5_reader&);
+  hdf5_reader& operator=(const hdf5_reader&);
+  ~hdf5_reader() override {}
+
   hdf5_reader* copy() const override { return new hdf5_reader(*this); }
+
+  void copy_members(const hdf5_reader& rhs);
 
   std::string get_type() const override {
     return "data_reader_hdf5_images";
@@ -48,7 +55,8 @@ class hdf5_reader : public generic_data_reader {
     return m_data_dims;
   }
  protected:
-  void read_hdf5(hsize_t h_data, hsize_t filespace, int rank, std::string key, hsize_t* dims, DataType * data_out);
+  void read_hdf5_hyperslab(hsize_t h_data, hsize_t filespace, int rank, std::string key, hsize_t* dims, conduit::Node& sample);
+  void read_hdf5_sample(int data_id, conduit::Node& sample);
   //void set_defaults() override;
   bool fetch_datum(CPUMat& X, int data_id, int mb_idx) override;
   bool fetch_label(CPUMat& Y, int data_id, int mb_idx) override;
