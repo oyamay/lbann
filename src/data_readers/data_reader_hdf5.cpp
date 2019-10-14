@@ -131,8 +131,8 @@ void hdf5_reader::copy_members(const hdf5_reader &rhs) {
   }
 
   void hdf5_reader::read_hdf5_sample(int data_id, conduit::Node& sample) {
-    //int world_rank = get_rank_in_world();
-    int world_rank = dc::get_input_rank(*get_comm()); // Should probably be trainer rank
+    int world_rank = get_rank_in_world();
+    //int world_rank = dc::get_input_rank(*get_comm()); // Should probably be trainer rank
     auto file = m_file_paths[data_id];
     hid_t h_file = H5Fopen(file.c_str(), H5F_ACC_RDONLY, m_fapl);
 
@@ -186,11 +186,11 @@ void hdf5_reader::copy_members(const hdf5_reader &rhs) {
     if(dc::get_rank_stride() != 1) {
       LBANN_ERROR("HDF5 MPI-IO data reader requires DistConv rank stride = 1");
     }
-    // const El::mpi::Comm & w_comm = l_comm->get_world_comm();
-    // MPI_Comm mpi_comm = w_comm.GetMPIComm();
-    // int world_rank = get_rank_in_world();
-    MPI_Comm mpi_comm = dc::get_input_comm(*l_comm);
-    int world_rank = dc::get_input_rank(*l_comm); // Should probably be trainer rank
+    const El::mpi::Comm & w_comm = l_comm->get_world_comm();
+    MPI_Comm mpi_comm = w_comm.GetMPIComm();
+    int world_rank = get_rank_in_world();
+    // MPI_Comm mpi_comm = dc::get_input_comm(*l_comm);
+    // int world_rank = dc::get_input_rank(*l_comm); // Should probably be trainer rank
     int color = world_rank/dc::get_number_of_io_partitions();
     MPI_Comm_split(mpi_comm, color, world_rank, &m_comm);
     m_shuffled_indices.clear();
