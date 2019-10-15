@@ -267,7 +267,8 @@ void hdf5_reader::copy_members(const hdf5_reader &rhs) {
       }
     }
     const std::string conduit_obj = LBANN_DATA_ID_STR(data_id);
-    conduit::Node slab = node[conduit_obj+"/slab"];
+    conduit::Node slab;
+    slab.set_external(node[conduit_obj+"/slab"]);
     unsigned short *data = slab.value();
     std::memcpy(X.Buffer(), data, slab.dtype().number_of_elements()*slab.dtype().element_bytes());
 
