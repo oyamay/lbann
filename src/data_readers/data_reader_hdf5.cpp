@@ -127,7 +127,7 @@ void hdf5_reader::copy_members(const hdf5_reader &rhs) {
     sample.set(conduit::DataType::uint16(xPerNode * yPerNode * zPerNode * cPerNode));
 
     unsigned short* buf = sample.value();
-    H5Dread(h_data, H5T_NATIVE_SHORT, memspace, filespace, H5P_DEFAULT, buf);
+    H5Dread(h_data, H5T_NATIVE_SHORT, memspace, filespace, m_dxpl, buf);
   }
 
   void hdf5_reader::read_hdf5_sample(int data_id, conduit::Node& sample) {
@@ -201,11 +201,13 @@ void hdf5_reader::copy_members(const hdf5_reader &rhs) {
                                      (size_t) 1,
                                      std::multiplies<size_t>());
 
+#define DATA_READER_HDF5_USE_MPI_IO
 #ifdef DATA_READER_HDF5_USE_MPI_IO
+    std::cout << "data_reader_hdf5 is compiled with MPI-IO enabled" << std::endl;
     m_fapl = H5Pcreate(H5P_FILE_ACCESS);
     CHECK_HDF5(H5Pset_fapl_mpio(m_fapl, m_comm, MPI_INFO_NULL));
     m_dxpl = H5Pcreate(H5P_DATASET_XFER);
-    CHECK_HDF5(H5Pset_dxpl_mpio(m_dxpl, H5FD_MPIO_COLLECTIVE));
+    CHECK_HDF5(H5Pset_dxpl_mpio(m_dxpl, H5FD_MPIO_INDEPENDENT));  // H5FD_MPIO_COLLECTIVE
 #else
     m_fapl = H5P_DEFAULT;
     m_dxpl = H5P_DEFAULT;
