@@ -93,6 +93,7 @@ void hdf5_reader::copy_members(const hdf5_reader &rhs) {
 }
 
   void hdf5_reader::read_hdf5_hyperslab(hsize_t h_data, hsize_t filespace, int rank, std::string key, hsize_t* dims, conduit::Node& sample) {
+    prof_region_begin("read_hdf5_hyperslab", prof_colors[0], false);
     // this is the splits, right now it is hard coded to split along the z axis
     int num_io_parts = dc::get_number_of_io_partitions();
     int ylines = 1;
@@ -128,6 +129,7 @@ void hdf5_reader::copy_members(const hdf5_reader &rhs) {
 
     unsigned short* buf = sample.value();
     H5Dread(h_data, H5T_NATIVE_SHORT, memspace, filespace, m_dxpl, buf);
+    prof_region_end("read_hdf5_hyperslab", false);
   }
 
   void hdf5_reader::read_hdf5_sample(int data_id, conduit::Node& sample) {
@@ -253,8 +255,10 @@ void hdf5_reader::copy_members(const hdf5_reader &rhs) {
     // Create a node to hold all of the data
     conduit::Node node;
     if (data_store_active()) {
+      prof_region_begin("get_conduit_node", prof_colors[0], false);
       const conduit::Node& ds_node = m_data_store->get_conduit_node(data_id);
       node.set_external(ds_node);
+      prof_region_end("get_conduit_node", false);
     }else {
       read_hdf5_sample(data_id, node);
       if (priming_data_store()) {
@@ -263,10 +267,14 @@ void hdf5_reader::copy_members(const hdf5_reader &rhs) {
       }
     }
     const std::string conduit_obj = LBANN_DATA_ID_STR(data_id);
+    prof_region_begin("node[conduit_obj]", prof_colors[0], false);
     conduit::Node slab;
     slab.set_external(node[conduit_obj+"/slab"]);
+    prof_region_end("node[conduit_obj]", false);
     unsigned short *data = slab.value();
+    prof_region_begin("copy_to_buffer", prof_colors[0], false);
     std::memcpy(X.Buffer(), data, slab.dtype().number_of_elements()*slab.dtype().element_bytes());
+    prof_region_end("copy_to_buffer", false);
 
     prof_region_end("fetch_datum", false);
     return true;
