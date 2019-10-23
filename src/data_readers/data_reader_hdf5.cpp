@@ -249,7 +249,7 @@ void hdf5_reader::copy_members(const hdf5_reader &rhs) {
     assert_eq(X.Width(), 1);
     // Assuming 512^3 samples
     assert_eq(X.Height(),
-               512 * 512 * 512 * 4 / dc::get_number_of_io_partitions()
+              512 * 512 * 512 * 4 / dc::get_number_of_io_partitions()
               / (sizeof(DataType) / sizeof(short)));
 
     // Create a node to hold all of the data
