@@ -80,7 +80,6 @@ void hdf5_reader::copy_members(const hdf5_reader &rhs) {
   m_has_labels = rhs.m_has_labels;
   m_has_responses = rhs.m_has_responses;
   m_num_features = rhs.m_num_features;
-  m_num_response_features = rhs.m_num_response_features;
   m_data_dims = rhs.m_data_dims;
   m_comm = rhs.m_comm;
   m_data_dims = rhs.m_data_dims;
@@ -237,6 +236,10 @@ void hdf5_reader::load() {
   instantiate_data_store(local_list_sizes);
 
   select_subset_of_data();
+
+  if (dc::get_rank_stride() == 1) {
+    MPI_Comm_dup(dc::get_mpi_comm(), &m_response_gather_comm);
+  }
 }
 bool hdf5_reader::fetch_label(Mat& Y, int data_id, int mb_idx) {
   return true;
@@ -279,6 +282,7 @@ bool hdf5_reader::fetch_datum(Mat& X, int data_id, int mb_idx) {
   prof_region_end("fetch_datum", false);
   return true;
 }
+
 //get from a cached response
 bool hdf5_reader::fetch_response(Mat& Y, int data_id, int mb_idx) {
   prof_region_begin("fetch_response", prof_colors[0], false);
@@ -296,9 +300,50 @@ bool hdf5_reader::fetch_response(Mat& Y, int data_id, int mb_idx) {
   }
   std::memcpy(Y.Buffer(), buf,
               m_num_response_features*sizeof(DataType));
-
+  if (dc::get_rank_stride() == 1) {
+    gather_responses(Y.Buffer());
+  }
   prof_region_end("fetch_response", false);
   return true;
+}
+
+// Gather scattered responses to the first N ranks, where N is the
+// mini-batch size. This is not necessary when the rank reordering
+// is used.
+void hdf5_reader::gather_responses(float *responses) {
+  float recv_buf[m_num_response_features];
+  const int rank = dc::get_mpi_rank();
+  const int num_part = dc::get_number_of_io_partitions();
+  const int mini_batch_size = this->get_loaded_mini_batch_size();
+  const int src_rank = rank * num_part;
+  const int dst_rank = rank / num_part;
+  const int tag = 0;
+  int req_idx = 0;
+  MPI_Request req[2];
+
+  // send
+  if (rank % num_part == 0) {
+    //dc::MPIPrintStreamInfo() << "Sending to " << dst_rank;
+    MPI_Isend(responses, m_num_response_features, MPI_FLOAT, dst_rank,
+              tag, m_response_gather_comm, &req[req_idx]);
+    ++req_idx;
+  }
+
+  // recv
+  if (rank < mini_batch_size) {
+    //dc::MPIPrintStreamInfo() << "Receiving from " << src_rank;
+    MPI_Irecv(recv_buf, m_num_response_features, MPI_FLOAT, src_rank, tag,
+              m_response_gather_comm, &req[req_idx]);
+    ++req_idx;
+  }
+
+  if (req_idx > 0) {
+    //dc::MPIPrintStreamInfo() << "Waiting for response gather completion";
+    MPI_Waitall(req_idx, req, MPI_STATUS_IGNORE);
+    //dc::MPIRootPrintStreamInfo() << "Gather done";
+  }
+
+  std::memcpy(responses, recv_buf, sizeof(float) * m_num_response_features);
 }
 
 }
