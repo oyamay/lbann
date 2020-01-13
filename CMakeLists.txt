@@ -460,6 +460,8 @@ if (LBANN_WITH_DISTCONV)
   message(STATUS "DISTCONV requested")
   find_package(DIHYDROGEN REQUIRED)
   set(LBANN_HAS_DIHYDROGEN ${DIHYDROGEN_FOUND})
+  # Temporary set this for incremental migration
+  set(LBANN_HAS_DISTCONV ${DIHYDROGEN_FOUND})
   message(STATUS "Found DiHydrogen: ${DIHYDROGEN_DIR}")
 endif (LBANN_WITH_DISTCONV)
 

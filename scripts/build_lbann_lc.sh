@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+. /usr/share/lmod/lmod/init/bash
 
 # Detect system parameters
 CLUSTER=$(hostname | sed 's/\([a-zA-Z][a-zA-Z]*\)[0-9]*/\1/g')
@@ -849,7 +851,7 @@ cmake \
 -D LBANN_SB_BUILD_P2P=${WITH_P2P} \
 -D LBANN_WITH_P2P=${WITH_P2P} \
 -D LBANN_SB_FWD_HYDROGEN_Hydrogen_AVOID_CUDA_AWARE_MPI=${AVOID_CUDA_AWARE_MPI} \
--D LBANN_SB_FWD_ALUMINUM_ALUMINUM_ENABLE_STREAM_MEM_OPS=ON \
+-D LBANN_SB_FWD_ALUMINUM_ALUMINUM_ENABLE_STREAM_MEM_OPS=OFF \
 -D LBANN_SB_FWD_ALUMINUM_ALUMINUM_HT_USE_PASSTHROUGH=OFF \
 ${CMAKE_BLAS_OPTIONS} \
 ${SUPERBUILD_DIR}
