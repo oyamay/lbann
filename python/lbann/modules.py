@@ -140,7 +140,8 @@ class ConvolutionModule(Module):
     def __init__(self, num_dims,
                  out_channels, kernel_size,
                  stride=1, padding=0, dilation=1, groups=1, bias=True,
-                 weights=[], activation=None, name=None, parallel_strategy={}):
+                 weights=[], activation=None, name=None, parallel_strategy={},
+                 transpose=False):
         """Initialize convolution module.
 
         Args:
@@ -178,6 +179,7 @@ class ConvolutionModule(Module):
                      if name
                      else 'convmodule{0}'.format(ConvolutionModule.global_count))
         self.parallel_strategy = parallel_strategy
+        self.transpose = transpose
 
         # Initialize weights
         # Note: If weights are not provided, kernel weights are
@@ -210,9 +212,9 @@ class ConvolutionModule(Module):
     def forward(self, x):
         self.instance += 1
         name = '{0}_instance{1}'.format(self.name, self.instance)
-        y = lbann.Convolution(x,
+        y = (lbann.Convolution if not self.transpose else lbann.Deconvolution)(x,
                               weights=self.weights,
-                              name=(name+'_conv' if self.activation else name),
+                              name=(name+('_conv' if not self.transpose else '_deconv') if self.activation else name),
                               num_dims=self.num_dims,
                               num_output_channels=self.out_channels,
                               has_vectors=False,
@@ -451,7 +453,7 @@ class GRU(Module):
             prev_state: State from previous GRU step.
 
         Returns:
-            (Layer, Layer): The output (out)  and state (hn). 
+            (Layer, Layer): The output (out)  and state (hn).
                           The state can be passed directly into
                            the next GRU step.
 
@@ -486,13 +488,13 @@ class GRU(Module):
                            data_layout=self.data_layout)
         Whn_prev = lbann.Identity(fc2_slice, name=name + '_Wnh',
                            data_layout=self.data_layout)
-        
+
         rt = lbann.Sigmoid(lbann.Add([Wir_x,Whr_prev], data_layout=self.data_layout), name=name + '_reset_gate',
                            data_layout=self.data_layout)
 
         zt = lbann.Sigmoid(lbann.Add([Wiz_x,Whz_prev], data_layout=self.data_layout), name=name + '_update_gate',
                            data_layout=self.data_layout)
-        
+
         nt = lbann.Tanh(lbann.Add([Win_x,
                         lbann.Multiply([rt,Whn_prev], data_layout=self.data_layout)], data_layout=self.data_layout),
                         name=name + '_new_gate', data_layout=self.data_layout)
@@ -504,8 +506,8 @@ class GRU(Module):
                                  zt],
                                  scaling_factors='1 -1', data_layout=self.data_layout),
                              nt], data_layout=self.data_layout),
-                       lbann.Multiply([zt,prev_state], data_layout=self.data_layout)], name=name+ '_output', 
+                       lbann.Multiply([zt,prev_state], data_layout=self.data_layout)], name=name+ '_output',
                        data_layout=self.data_layout)
-        
+
         # Return output
         return ht, ht

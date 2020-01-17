@@ -21,7 +21,7 @@ else ()
     CACHE STRING "The URL from which to clone HDF5")
 endif ()
 
-set(HDF5_TAG "develop"
+set(HDF5_TAG "9d9044e0e9dcd79495be7727a9696e9926811142"
   CACHE STRING "The git tag to checkout for HDF5")
 
 set(HDF5_CMAKE_BUILD_TYPE "${CMAKE_BUILD_TYPE}"

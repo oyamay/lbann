@@ -269,7 +269,7 @@ void softmax_layer<data_layout::DATA_PARALLEL, El::Device::GPU>::fp_compute() {
   if (!local_input.IsEmpty()) {
     CHECK_CUDNN(cudnnSoftmaxForward(cudnn::get_handle(),
                                     CUDNN_SOFTMAX_ACCURATE,
-                                    CUDNN_SOFTMAX_MODE_INSTANCE,
+                                    CUDNN_SOFTMAX_MODE_CHANNEL,
                                     &one,
                                     m_tensors_cudnn_desc.get_prev_activations(),
                                     local_input.LockedBuffer(),
@@ -293,7 +293,7 @@ void softmax_layer<data_layout::DATA_PARALLEL, El::Device::GPU>::bp_compute() {
   if (!local_output.IsEmpty()) {
     CHECK_CUDNN(cudnnSoftmaxBackward(cudnn::get_handle(),
                                      CUDNN_SOFTMAX_ACCURATE,
-                                     CUDNN_SOFTMAX_MODE_INSTANCE,
+                                     CUDNN_SOFTMAX_MODE_CHANNEL,
                                      &one,
                                      m_tensors_cudnn_desc.get_activations(),
                                      local_output.LockedBuffer(),
