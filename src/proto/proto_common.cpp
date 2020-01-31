@@ -190,7 +190,10 @@ void init_data_readers(
       reader = reader_cosmoflow;
 #ifdef LBANN_HAS_DISTCONV
     } else if (name=="cosmoflow_hdf5") {
-      auto* reader_cosmo_hdf5 = new hdf5_reader(shuffle);
+      const auto key_data = readme.hdf5_key_data();
+      const auto key_responses = readme.hdf5_key_responses();
+      auto* reader_cosmo_hdf5 = new hdf5_reader(shuffle, key_data,
+                                                key_responses);
       auto filedir = readme.data_filedir();
       if(!endsWith(filedir, "/")) {
         filedir = filedir + "/";
