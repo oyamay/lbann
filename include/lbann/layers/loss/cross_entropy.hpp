@@ -28,6 +28,7 @@
 #define LBANN_LAYERS_LOSS_CROSS_ENTROPY_HPP_INCLUDED
 
 #include "lbann/layers/layer.hpp"
+#include "lbann/utils/distconv.hpp"
 
 namespace lbann {
 
@@ -68,6 +69,12 @@ public:
   void setup_dims() override {
     Layer::setup_dims();
     set_output_dims({1});
+
+#ifdef LBANN_HAS_DISTCONV
+    if (using_distconv()) {
+      return;
+    }
+#endif
 
     // Check that input dimensions match
     if (get_input_dims(0) != get_input_dims(1)) {
@@ -115,6 +122,16 @@ public:
 
   void fp_compute() override {
 
+#ifdef LBANN_HAS_DISTCONV
+    if (distconv_enabled()) {
+      fp_compute_distconv();
+      if (!early_terminate_last_iteration()) {
+        return;
+      }
+      // fall through the normal code path to obtain reference results
+    }
+#endif
+
     // Initialize workspace
     const auto& prediction = get_prev_activations(0);
     m_workspace->AlignWith(prediction.DistData());
@@ -128,9 +145,24 @@ public:
     m_comm->allreduce(*m_workspace, m_workspace->RedundantComm());
     El::Copy(*m_workspace, get_activations());
 
+#ifdef LBANN_HAS_DISTCONV
+    if (distconv_enabled() && early_terminate_last_iteration() &&
+        keep_original()) {
+      dump_reference_activations();
+    }
+#endif // LBANN_HAS_DISTCONV
   }
 
   void bp_compute() override {
+
+#ifdef LBANN_HAS_DISTCONV
+    if (distconv_enabled()) {
+      bp_compute_distconv();
+      if (!early_terminate_last_iteration()) {
+        return;
+      }
+    }
+#endif // LBANN_HAS_DISTCONV
 
     // Initialize workspace
     const auto& prediction = get_prev_activations(0);
@@ -144,6 +176,12 @@ public:
                      get_local_error_signals(0),
                      get_local_error_signals(1));
 
+#ifdef LBANN_HAS_DISTCONV
+    if (distconv_enabled() && early_terminate_last_iteration() &&
+        keep_original()) {
+      dump_reference_error_signals();
+    }
+#endif // LBANN_HAS_DISTCONV
   }
 
 private:
@@ -162,6 +200,191 @@ private:
   /** Workspace matrix. */
   std::unique_ptr<AbsDistMat> m_workspace;
 
+#ifdef LBANN_HAS_DISTCONV
+ protected:
+  dc::CrossEntropy *m_cross_entropy;
+  dc::TensorDev m_ground_truth_t;
+  dc::TensorDev m_d_ground_truth_t;
+
+  void fp_compute_distconv() {
+    assert_always(distconv_enabled());
+    m_cross_entropy->forward(m_prev_activations_t, m_ground_truth_t,
+                             m_activations_t);
+    copy_out_activations();
+  }
+
+  void bp_compute_distconv() {
+    assert_always(distconv_enabled());
+    m_cross_entropy->backward(m_prev_activations_t, m_ground_truth_t,
+                              m_prev_error_signals_t,
+                              m_error_signals_t, m_d_ground_truth_t);
+    copy_out_error_signals();
+  }
+
+ public:
+  void setup_tensor_distribution_init(
+      std::map<const Layer*, std::array<dc::Dist, dc::num_dists>> &dists,
+      std::map<dc::Dist*, std::set<dc::Dist*>> &invariants,
+      std::set<dc::Dist*> &updated,
+      std::set<dc::Dist*> &fixed) override {
+    Layer::setup_tensor_distribution_init(dists, invariants, updated, fixed);
+    if (!this->distconv_enabled()) return;
+
+    // Output tensors share all dimensions except for the sample dimension
+    auto activations_split = dists[this][1].get_split_shape();
+    auto error_signals_split = dists[this][3].get_split_shape();
+    for (int i = 0; i < activations_split.length() - 1; ++i) {
+      activations_split[i] = 1;
+      error_signals_split[i] = 1;
+    }
+    dists[this][1].set_split_shape(activations_split);
+    dists[this][3].set_split_shape(error_signals_split);
+
+    // No overlap supported yet
+    const dc::IntVector no_overlap(this->get_num_dims(), 0);
+    for (int i = 0; i < 4; ++i) {
+      auto &dist = dists[this][i];
+      dist.set_overlap(no_overlap);
+      updated.insert(&dist);
+      fixed.insert(&dist);
+    }
+  }
+
+  dc::Shape get_activations_tensor_local_shape() const {
+    auto input_shape = m_prev_activations_t.get_local_shape();
+    for (int i = 0; i < input_shape.length() - 1; ++i) {
+      input_shape[i] = 1;
+    }
+    return input_shape;
+  }
+
+  // NOTE: LBANN matrix is a 2-D matrix, while Distconv keeps the
+  // original spatial and channel dimensions, so
+  // get_output_tensor_shape() doesn't work here.
+  void setup_activations_tensor(const std::array<dc::Dist, dc::num_dists> &dists,
+                                bool allocate=true) override {
+    const dc::LocaleMPI loc(dc::get_mpi_comm(), false);
+    auto output_tensor_shape = m_prev_activations_t.get_shape();
+    for (int i = 0; i < output_tensor_shape.length() - 1; ++i) {
+      output_tensor_shape[i] = 1;
+    }
+    const auto activations_local_shape =
+        get_activations_tensor_local_shape();
+    m_activations_t = dc::TensorDev(output_tensor_shape,
+                                    loc, dists[1], activations_local_shape);
+    if (allocate) {
+      assert0(m_activations_t.allocate());
+      m_activations_t.zero(dc::get_stream());
+    }
+  }
+
+  void setup_activations_copyout_tensor(const std::array<dc::Dist, dc::num_dists> &dists)
+      override {
+    const dc::LocaleMPI loc(dc::get_mpi_comm(), false);
+    const auto sample_dist = get_hydrogen_matrix_distribution(
+        this->get_num_dims());
+    const auto output_tensor_shape = m_activations_t.get_shape();
+    auto output_local_shape = output_tensor_shape;
+    // Set the sample dimension as 0 so that its actual value is
+    // calculated by Distconv
+    output_local_shape[-1] = 0;
+    m_activations_copyout = dc::TensorDev(output_tensor_shape, loc, sample_dist,
+                                          output_local_shape);
+    if (m_child_copy_out_required) {
+      m_activations_shuffler = dc::get_tensor_shuffler(
+          m_activations_t, m_activations_copyout);
+      for (int i = 0; i < 3; ++i) {
+        m_activations_shuffler_last_mb[i] = nullptr;
+      }
+    }
+  }
+
+  void setup_prev_error_signals_tensor(const std::array<dc::Dist, dc::num_dists> &dists)
+      override {
+    using namespace dc;
+    const LocaleMPI loc(dc::get_mpi_comm(), false);
+    const auto sample_dist = get_hydrogen_matrix_distribution(
+        this->get_num_dims());
+    const auto output_tensor_shape = m_activations_t.get_shape();
+    auto output_local_shape = output_tensor_shape;
+    // Set the sample dimension as 0 so that its actual value is
+    // calculated by Distconv
+    output_local_shape[-1] = 0;
+
+    if (m_child_copy_out_required || m_child_shuffle_required) {
+      if (m_child_copy_out_required) {
+        m_prev_error_signals_const_view = TensorDev(output_tensor_shape, loc,
+                                                    sample_dist,
+                                                    output_local_shape);
+      } else {
+        m_prev_error_signals_const_view =
+            get_child_layers()[0]->get_error_signals_t(*this);
+      }
+      m_prev_error_signals_t = TensorDev(output_tensor_shape, loc,
+                                         dists[3],
+                                         m_activations_t.get_local_shape());
+      assert0(m_prev_error_signals_t.allocate());
+      m_prev_error_signals_t.zero(dc::get_stream());
+      m_prev_error_signals_shuffler = get_tensor_shuffler(
+          m_prev_error_signals_const_view, m_prev_error_signals_t);
+      for (int i = 0; i < 3; ++i) {
+        m_prev_error_signals_shuffler_last_mb[i] = nullptr;
+      }
+    } else {
+      m_prev_error_signals_t = get_child_layers()[0]->get_error_signals_t(*this);
+      assert_always(m_prev_error_signals_t.get_distribution() ==
+                    dists[3]);
+    }
+  }
+
+  void setup_tensors_fwd(const std::array<dc::Dist, dc::num_dists> &dists)
+      override {
+    Layer::setup_tensors_fwd(dists);
+    if (!distconv_enabled()) return;
+    setup_prev_activations_tensor(dists);
+    setup_activations_tensor(dists);
+    setup_activations_copyout_tensor(dists);
+    m_ground_truth_t = get_parent_layers()[1]->get_activations_t(*this);
+  }
+
+  void setup_tensors_bwd(const std::array<dc::Dist, dc::num_dists> &dists)
+      override {
+    Layer::setup_tensors_bwd(dists);
+    if (!distconv_enabled()) return;
+    setup_prev_error_signals_tensor(dists);
+    setup_error_signals_tensor(dists);
+    setup_error_signals_copyout_tensor(dists);
+
+    const dc::LocaleMPI loc(dc::get_mpi_comm(), false);
+    const auto &global_shape = m_ground_truth_t.get_shape();
+    const auto &local_shape = m_ground_truth_t.get_local_shape();
+    m_d_ground_truth_t = dc::TensorDev(
+        global_shape, loc, dists[2], local_shape);
+    assert0(m_d_ground_truth_t.allocate());
+    m_d_ground_truth_t.zero(dc::get_stream());
+
+    m_cross_entropy = new dc::CrossEntropy(dc::get_backend());
+    m_cross_entropy->setup(m_prev_activations_t, m_ground_truth_t,
+                           m_activations_t);
+  }
+
+  using Layer::get_error_signals_t;
+
+  const dc::TensorDev &get_error_signals_t(const Layer &parent) const {
+    const auto parents = get_parent_layers();
+    assert_always(parents.size() == 2);
+    for (int i = 0; i < (int)parents.size(); ++i) {
+      if (parents[i] == &parent) {
+        if (i == 0) {
+          return m_error_signals_t;
+        } else {
+          return m_d_ground_truth_t;
+        }
+      }
+    }
+    LBANN_ERROR("No such parent found");
+  }
+#endif // LBANN_HAS_DISTCONV
 };
 
 #ifndef LBANN_CROSS_ENTROPY_LAYER_INSTANTIATE

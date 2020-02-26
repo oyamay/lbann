@@ -110,8 +110,26 @@ protected:
 #ifdef LBANN_HAS_DISTCONV
  protected:
   std::vector<dc::TensorDev> m_prev_activations_siblings;
+  std::vector<dc::TensorDev> m_error_signals_siblings;
 
  public:
+
+  using Layer::get_error_signals_t;
+
+  const dc::TensorDev &get_error_signals_t(const Layer &parent) const {
+    const auto parents = get_parent_layers();
+    for (int i = 0; i < (int)parents.size(); ++i) {
+      if (parents[i] == &parent) {
+        if (i == 0) {
+          return m_error_signals_t;
+        } else {
+          return m_error_signals_siblings[i-1];
+        }
+      }
+    }
+    LBANN_ERROR("No such parent found");
+  }
+
   void setup_tensors_fwd(const std::array<dc::Dist, dc::num_dists> &dists) override {
     Layer::setup_tensors_fwd(dists);
     if (!this->distconv_enabled()) return;
@@ -124,7 +142,7 @@ protected:
     m_prev_activations_siblings.reserve(get_num_parents() - 1);
     for (int i = 1; i < get_num_parents(); ++i) {
       m_prev_activations_siblings.emplace_back(
-          get_parent_layers()[i]->get_activations_t());
+          get_parent_layers()[i]->get_activations_t(*this));
     }
   }
 
@@ -134,6 +152,10 @@ protected:
 
     this->setup_prev_error_signals_tensor(dists);
     m_error_signals_t = m_prev_error_signals_t;
+    for (int i = 1; i < get_num_parents(); ++i) {
+      m_error_signals_siblings.emplace_back(
+          m_prev_error_signals_t);
+    }
     this->setup_error_signals_copyout_tensor(dists);
   }
 

@@ -91,6 +91,11 @@ protected:
 
  public:
 
+  const dc::TensorDev &get_activations_t(const Layer &child) const {
+    // Pass the same tensor as a const reference to multiple child layers
+    return m_activations_t;
+  }
+
   void setup_tensor_distribution_init(
       std::map<const Layer*, std::array<lbann::dc::Dist, dc::num_dists>> &dists,
       std::map<dc::Dist*, std::set<dc::Dist*>> &invariants,
@@ -133,7 +138,7 @@ protected:
     m_prev_error_signals_siblings.reserve(get_num_children() - 1);
     for (int i = 1; i < get_num_children(); ++i) {
       m_prev_error_signals_siblings.emplace_back(
-          get_child_layers()[i]->get_error_signals_t());
+          get_child_layers()[i]->get_error_signals_t(*this));
     }
   }
 #endif
