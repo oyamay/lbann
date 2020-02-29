@@ -180,6 +180,10 @@ void init_data_readers(
       set_transform_pipeline = false;
     } else if (name == "nci") {
       reader = new data_reader_nci(shuffle);
+    } else if (name == "ras_lipid") {
+      auto *ras_lipid = new ras_lipid_conduit_data_reader(shuffle);
+      ras_lipid->set_num_labels(readme.num_labels());
+      reader = ras_lipid;
     } else if (name == "csv") {
       auto* reader_csv = new csv_reader(shuffle);
       reader_csv->set_label_col(readme.label_col());
@@ -448,7 +452,7 @@ void init_data_readers(
       } else if (name == "numpy_npz_conduit_reader") {
         reader_validation = new numpy_npz_conduit_reader(*dynamic_cast<const numpy_npz_conduit_reader*>(reader));
       } else if (name == "imagenet") {
-        reader_validation = new imagenet_reader(*dynamic_cast<const imagenet_reader*>(reader), reader->get_unused_indices());
+        reader_validation = new imagenet_reader(*dynamic_cast<const imagenet_reader*>(reader));
       } else if (name == "multihead_siamese") {
   	reader_validation = new data_reader_multihead_siamese(*dynamic_cast<const data_reader_multihead_siamese*>(reader));
       } else if (name == "jag") {
@@ -476,13 +480,18 @@ void init_data_readers(
             reader_jag_conduit->set_leading_reader(leader);
           }
         } else {
-          reader_validation = new data_reader_jag_conduit(*dynamic_cast<const data_reader_jag_conduit*>(reader), reader->get_unused_indices());
+          reader_validation = new data_reader_jag_conduit(*dynamic_cast<const data_reader_jag_conduit*>(reader));
           const std::string role = "validate";
           auto reader_jag_conduit = dynamic_cast<data_reader_jag_conduit*>(reader_validation);
           reader_jag_conduit->set_leading_reader(reader_jag_conduit);
           reader_jag_conduit->set_role(role);
           leading_reader_jag_conduit[role] = reader_jag_conduit;
         }
+      } else if (name == "ras_lipid") {
+        auto *ras_lipid = new ras_lipid_conduit_data_reader(shuffle);
+        ras_lipid->set_num_labels(readme.num_labels());
+        reader_validation = ras_lipid;
+        (*(ras_lipid_conduit_data_reader *)reader_validation) = (*(ras_lipid_conduit_data_reader *)reader);
       } else if (name == "nci") {
         reader_validation = new data_reader_nci(shuffle);
         (*(data_reader_nci *)reader_validation) = (*(data_reader_nci *)reader);
@@ -526,12 +535,6 @@ void init_data_readers(
       if (store != nullptr) {
         store->set_data_reader_ptr(reader_validation);
         reader_validation->get_data_store_ptr()->compact_nodes();
-      }
-
-      /// At this point clean up any unused samples from the main data store
-      if(reader->get_data_store_ptr() != nullptr) {
-        auto&& data_store = reader->get_data_store_ptr();
-        data_store->purge_unused_samples(reader->get_unused_indices());
       }
 
       if (master) {
@@ -806,8 +809,8 @@ void get_cmdline_overrides(const lbann_comm& comm, lbann_data::LbannPB& p)
   if (opts->has_int("num_epochs")) {
     model->set_num_epochs(opts->get_int("num_epochs"));
   }
-  if (opts->has_int("block_size")) {
-    trainer->set_block_size(opts->get_int("block_size"));
+  if (opts->has_int("hydrogen_block_size")) {
+    trainer->set_hydrogen_block_size(opts->get_int("hydrogen_block_size"));
   }
   if (opts->has_int("procs_per_trainer")) {
     trainer->set_procs_per_trainer(opts->get_int("procs_per_trainer"));
@@ -851,7 +854,7 @@ void print_parameters(const lbann_comm& comm, lbann_data::LbannPB& p)
             << "  datatype size:           " << sizeof(DataType) << std::endl
             << "  mini_batch_size:         " << m.mini_batch_size() << std::endl
             << "  num_epochs:              " << m.num_epochs()  << std::endl
-            << "  block_size:              " << t.block_size()  << std::endl
+            << "  hydrogen_block_size:     " << t.hydrogen_block_size()  << std::endl
             << "  procs_per_trainer:       " << t.procs_per_trainer()  << std::endl
             << "  num_parallel_readers:    " << t.num_parallel_readers()  << std::endl
             << "  serialize_io:            " << m.serialize_io()  << std::endl
@@ -890,9 +893,8 @@ void print_help(std::ostream& os)
        "General:\n"
        "  --mini_batch_size=<int>\n"
        "  --num_epochs=<int>\n"
-       "  --block_size=<int>\n"
+       "  --hydrogen_block_size=<int>\n"
        "  --procs_per_trainer=<int>\n"
-       "  --num_gpus=<int>\n"
        "  --num_parallel_readers=<int>\n"
        "  --num_io_threads=<int>\n"
        "      # of threads used for I/O by the data readers\n"

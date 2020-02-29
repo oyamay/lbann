@@ -57,6 +57,7 @@ then
     export CUDNN_DIR=$(find ${BRAIN_DIR}/cudnn -maxdepth 2 -type d | grep "cuda-10.*_${ARCH}" | tail -n1)
 
     # Unit testing framework
+    export CLARA_DIR=${WORKSPACE_DIR}/stable_dependencies/clara
     export CATCH2_DIR=${WORKSPACE_DIR}/stable_dependencies/catch2
 
     # Add Ninja support
@@ -107,7 +108,6 @@ then
         -DLBANN_DATATYPE=float \
         -DLBANN_DETERMINISTIC=OFF \
         -DLBANN_WARNINGS_AS_ERRORS=ON \
-        -DLBANN_WITH_ALUMINUM=ON \
         -DLBANN_WITH_CONDUIT=ON \
         -DLBANN_WITH_CUDA=ON \
         -DLBANN_WITH_NVPROF=OFF \

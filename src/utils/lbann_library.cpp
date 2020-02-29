@@ -42,7 +42,6 @@ namespace lbann {
 std::unique_ptr<trainer> construct_trainer(lbann_comm *comm,
                                              lbann_data::Trainer* pb_trainer,
                                              options *opts) {
-  bool master = comm->am_world_master();
   try {
     int procs_per_trainer = 0;
     if(pb_trainer->procs_per_trainer() > 0) {
@@ -69,11 +68,10 @@ std::unique_ptr<trainer> construct_trainer(lbann_comm *comm,
     auto io_threads_per_process = io_thread_pool->get_num_threads();
     auto io_threads_offset = io_thread_pool->get_threads_offset();
 
-    // Set algorithmic blocksize
-    if (pb_trainer->block_size() == 0 and master) {
-      LBANN_ERROR("model does not provide a valid block size (", pb_trainer->block_size(), ")");
+    // Set algorithmic blocksize in Hydrogen
+    if (pb_trainer->hydrogen_block_size() > 0) {
+      El::SetBlocksize(pb_trainer->hydrogen_block_size());
     }
-    El::SetBlocksize(pb_trainer->block_size());
 
     // Set up the communicator and get the grid based on the trainers' spec.
     // We do not currently support splitting different trainers in different ways,
@@ -184,16 +182,16 @@ std::unique_ptr<model> build_model_from_prototext(
 
   // Initialize models differently if needed.
 #ifndef LBANN_DETERMINISTIC
-  if (pb_model->random_init_models_differently()) {
-    random_seed = random_seed + comm->get_trainer_rank();
+  if (!pb_trainer->random_init_trainers_identically()) {
+    hash_combine(random_seed, comm->get_trainer_rank());
     // Reseed here so that setup is done with this new seed.
     init_random(random_seed);
     init_data_seq_random(random_seed);
   }
 #else
-  if (pb_model->random_init_models_differently()) {
+  if (!pb_trainer->random_init_trainers_identically()) {
     if (master) {
-      std::cout << "WARNING: Ignoring random_init_models_differently " <<
+      std::cout << "WARNING: forcing 'random_init_trainers_identically' " <<
         "due to sequential consistency" << std::endl;
     }
   }
@@ -278,7 +276,7 @@ std::unique_ptr<model> build_model_from_prototext(
   // Setup models
   ret_model->setup();
 
-  if (opts->get_bool("use_data_store") || opts->get_bool("preload_data_store") || opts->get_bool("data_store_cache")) {
+  if (opts->get_bool("use_data_store") || opts->get_bool("preload_data_store") || opts->get_bool("data_store_cache") || opts->has_string("data_store_spill")) {
     if (master) {
       std::cout << "\nUSING DATA STORE!\n\n";
     }
