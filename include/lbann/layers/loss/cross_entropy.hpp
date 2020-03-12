@@ -42,12 +42,12 @@ template <data_layout T_layout, El::Device Dev>
 class cross_entropy_layer : public Layer {
 public:
 
-  cross_entropy_layer(lbann_comm *comm) : Layer(comm) {
+  cross_entropy_layer(lbann_comm *comm, const bool use_labels) : Layer(comm), m_use_labels(use_labels) {
     this->m_expected_num_parent_layers = 2;
   }
 
   cross_entropy_layer(const cross_entropy_layer& other)
-    : Layer(other) {
+      : Layer(other), m_use_labels(other.m_use_labels) {
     m_workspace.reset(other.m_workspace ?
                       other.m_workspace->Copy() :
                       nullptr);
@@ -55,6 +55,7 @@ public:
 
   cross_entropy_layer& operator=(const cross_entropy_layer& other) {
     Layer::operator=(other);
+    m_use_labels = other.m_use_labels;
     m_workspace.reset(other.m_workspace ?
                       other.m_workspace->Copy() :
                       nullptr);
@@ -129,8 +130,16 @@ public:
         return;
       }
       // fall through the normal code path to obtain reference results
+    } else {
+      if(m_use_labels) {
+        LBANN_ERROR("Cross-entropy layers without Distconv don't support use_labels.");
+      }
     }
-#endif
+#else // LBANN_HAS_DISTCONV
+    if(m_use_labels) {
+      LBANN_ERROR("Cross-entropy layers without Distconv don't support use_labels.");
+    }
+#endif // LBANN_HAS_DISTCONV
 
     // Initialize workspace
     const auto& prediction = get_prev_activations(0);
@@ -161,6 +170,14 @@ public:
       if (!early_terminate_last_iteration()) {
         return;
       }
+    } else {
+      if(m_use_labels) {
+        LBANN_ERROR("Cross-entropy layers without Distconv don't support use_labels.");
+      }
+    }
+#else // LBANN_HAS_DISTCONV
+    if(m_use_labels) {
+      LBANN_ERROR("Cross-entropy layers without Distconv don't support use_labels.");
     }
 #endif // LBANN_HAS_DISTCONV
 
@@ -196,6 +213,9 @@ private:
                                const AbsMat& local_gradient_wrt_output,
                                AbsMat& local_gradient_wrt_prediction,
                                AbsMat& local_gradient_wrt_ground_truth);
+
+  /** Use interger label tensors as ground-truth. */
+  bool m_use_labels;
 
   /** Workspace matrix. */
   std::unique_ptr<AbsDistMat> m_workspace;
@@ -304,7 +324,7 @@ private:
     assert0(m_d_ground_truth_t.allocate());
     m_d_ground_truth_t.zero(dc::get_stream());
 
-    m_cross_entropy = new dc::CrossEntropy(dc::get_backend());
+    m_cross_entropy = new dc::CrossEntropy(dc::get_backend(), m_use_labels);
     m_cross_entropy->setup(m_prev_activations_t, m_ground_truth_t,
                            m_activations_t);
   }

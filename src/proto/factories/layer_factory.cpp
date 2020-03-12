@@ -694,7 +694,10 @@ std::unique_ptr<Layer> construct_layer(
 
   // Loss layers
   CONSTRUCT_LAYER(categorical_accuracy);
-  CONSTRUCT_LAYER(cross_entropy);
+  if (proto_layer.has_cross_entropy()) {
+    const auto& params = proto_layer.cross_entropy();
+    return lbann::make_unique<cross_entropy_layer<Layout, Device>>(comm, params.use_labels());
+  }
   CONSTRUCT_LAYER(mean_squared_error);
   CONSTRUCT_LAYER(mean_absolute_error);
   if (proto_layer.has_top_k_categorical_accuracy()) {
