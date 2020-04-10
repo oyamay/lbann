@@ -439,8 +439,8 @@ class input_layer_distconv : public input_layer<T_io_buffer, T_layout, Dev> {
   void copy_label_distconv(int mb_size) {
     if (!m_copy_labels_dc) return;
     constexpr int mat_idx = 1;
-    assert_eq(mb_size * dc::get_number_of_io_partitions(),
-              this->get_activations(mat_idx).Width());
+    //assert_eq(mb_size * dc::get_number_of_io_partitions(),
+     //         this->get_activations(mat_idx).Width());
 
     // Adjust the sample size
     m_labels_host_view.set_outermost_dimension(mb_size);
