@@ -149,20 +149,22 @@ protected:
   }
 
   void fp_setup_outputs(El::Int mini_batch_size) override {
+    if (distconv_enabled() && !keep_original_output(0)) {
+      return;
+    }
+
     const auto& num_inputs = get_num_parents();
     const auto& output_dims = get_output_dims();
 
     // Initialize output tensor
-    if (keep_original_output(0)) {
-      auto& output = get_activations();
-      output.Empty(false);
-      if (num_inputs > 1) {
-        output.AlignWith(get_prev_activations());
-        output.Resize(get_output_size(), mini_batch_size);
-      } else {
-        El::LockedView(output, get_prev_activations());
-        return;
-      }
+    auto& output = get_activations();
+    output.Empty(false);
+    if (num_inputs > 1) {
+      output.AlignWith(get_prev_activations());
+      output.Resize(get_output_size(), mini_batch_size);
+    } else {
+      El::LockedView(output, get_prev_activations());
+      return;
     }
 
     // Divide output tensor into unit slices along concat dimension
@@ -182,9 +184,6 @@ protected:
 
     // Populate slices of output tensor with input tensors
     for (int i = 0; i < num_inputs; ++i) {
-      if (!keep_original_output(i)) continue;
-      if (i != 0) LBANN_ERROR("Copyout non-first tensor not supported");
-      auto& output = get_activations();
       const auto& input_dims = get_input_dims(i);
       auto& input = get_prev_activations(i);
 
@@ -241,7 +240,7 @@ protected:
     const auto& gradient_wrt_output = get_prev_error_signals();
     for (int i = 0; i < num_inputs; ++i) {
 #ifdef LBANN_HAS_DISTCONV
-      if (!keep_original_input(i)) continue;
+      if (distconv_enabled() && !keep_original_input(i)) continue;
 #endif
       const auto& input_dims = get_input_dims(i);
       const auto& input_size = get_input_size(i);
