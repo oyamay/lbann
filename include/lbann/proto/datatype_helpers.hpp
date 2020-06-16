@@ -49,6 +49,12 @@ struct TypeToProtoDataType<double>
   static constexpr auto value = lbann_data::DOUBLE;
 };
 
+template <>
+struct TypeToProtoDataType<short>
+{
+  static constexpr auto value = lbann_data::SHORT;
+};
+
 #ifdef LBANN_HAS_HALF
 template <>
 struct TypeToProtoDataType<cpu_fp16>

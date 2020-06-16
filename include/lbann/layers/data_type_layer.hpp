@@ -56,7 +56,7 @@ using supported_layer_data_type = h2::meta::TL<
 #ifdef LBANN_HAS_HALF
   cpu_fp16,
 #endif
-  float, double>;
+  float, double, short>;
 
 template <typename TensorDataType>
 class data_type_layer : public Layer {

@@ -27,6 +27,10 @@
 PROTO(float);
 PROTO(double);
 
+#ifdef LBANN_INSTANTIATE_SHORT
+PROTO(short);
+#endif // LBANN_INSTANTIATE_SHORT
+
 #ifdef LBANN_HAS_HALF
 #ifdef LBANN_INSTANTIATE_CPU_HALF
 PROTO(cpu_fp16);
