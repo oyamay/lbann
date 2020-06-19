@@ -179,9 +179,8 @@ void init_data_readers(
       reader_numpy_npz->set_scaling_factor_int16(readme.scaling_factor_int16());
       reader = reader_numpy_npz;
     } else if (name == "cosmoflow") {
-      if(name == "cosmoflow_hdf5") {
-        LBANN_WARNING("The \"cosmoflow\" data reader is deprecated. Use \"hdf5\" instead.");
-      }
+      LBANN_WARNING("The \"cosmoflow\" data reader is deprecated. Use \"hdf5\" instead.");
+
       auto* reader_cosmoflow = new cosmoflow_reader(shuffle);
       auto filedir = readme.data_filedir();
       if(!endsWith(filedir, "/")) {
