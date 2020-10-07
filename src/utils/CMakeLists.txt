@@ -2,7 +2,7 @@
 set_full_path(THIS_DIR_SOURCES
   argument_parser.cpp
   cnpy_utils.cpp
-  cublas.cpp
+  commify.cpp
   cudnn.cpp
   description.cpp
   environment_variable.cpp
@@ -11,6 +11,8 @@ set_full_path(THIS_DIR_SOURCES
   graph.cpp
   im2col.cpp
   image.cpp
+  jag_common.cpp
+  lbann_library.cpp
   number_theory.cpp
   omp_diagnostics.cpp
   options.cpp
@@ -24,9 +26,6 @@ set_full_path(THIS_DIR_SOURCES
   statistics.cpp
   summary.cpp
   system_info.cpp
-  lbann_library.cpp
-  jag_common.cpp
-  commify.cpp
   trainer_file_utils.cpp
 )
 
