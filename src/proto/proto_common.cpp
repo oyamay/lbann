@@ -134,9 +134,6 @@ void init_data_readers(
       for (int i=0; i < pb_model.layer_size(); ++i) {
         const auto& proto_layer = pb_model.layer(i);
         if (proto_layer.has_input()) {
-          const auto& params = proto_layer.input();
-          const auto& io_buffer = params.io_buffer();
-          reader_jag_conduit->set_io_buffer_type(io_buffer);
           const auto num_readers = get_requested_num_parallel_readers(*comm, p);
           reader_jag_conduit->set_num_parallel_readers(num_readers);
           reader_jag_conduit->set_local_id(readme.role());
@@ -337,6 +334,21 @@ void init_data_readers(
       LBANN_ERROR("attempted to construct Python data reader, "
                   "but LBANN is not built with Python/C API");
 #endif // LBANN_HAS_PYTHON
+    } else if (name == "node2vec") {
+#ifdef LBANN_HAS_LARGESCALE_NODE2VEC
+      const auto& params = readme.node2vec();
+      reader = new node2vec_reader(
+        params.graph_file(),
+        params.epoch_size(),
+        params.walk_length(),
+        params.return_param(),
+        params.inout_param(),
+        params.num_negative_samples());
+#else
+      LBANN_ERROR("attempted to construct node2vec data reader, "
+                  "but LBANN is not built with "
+                  "largescale_node2vec or HavoqGT");
+#endif // LBANN_HAS_LARGESCALE_NODE2VEC
     } else {
         err << __FILE__ << " " << __LINE__ << " :: unknown name for data reader: "
             << name;
@@ -817,7 +829,7 @@ void get_cmdline_overrides(const lbann_comm& comm, lbann_data::LbannPB& p)
     trainer->set_random_seed(opts->get_int("random_seed"));
   }
   if(opts->get_bool("serialize_io")) {
-    model->set_serialize_io(opts->get_bool("serialize_io"));
+    trainer->set_serialize_io(opts->get_bool("serialize_io"));
   }
 
 }
@@ -857,7 +869,7 @@ void print_parameters(const lbann_comm& comm,
             << "  hydrogen_block_size:        " << t.hydrogen_block_size()  << std::endl
             << "  procs_per_trainer:          " << t.procs_per_trainer()  << std::endl
             << "  num_parallel_readers:       " << t.num_parallel_readers()  << std::endl
-            << "  serialize_io:               " << m.serialize_io()  << std::endl
+            << "  serialize_io:               " << t.serialize_io()  << std::endl
             << "  cuda:                       " << (disable_cuda ? "disabled" : "enabled") << std::endl
             << "  cudnn:                      " << (disable_cudnn ? "disabled" : "enabled") << std::endl;
   auto& arg_parser = global_argument_parser();

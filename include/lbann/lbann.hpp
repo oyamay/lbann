@@ -107,7 +107,7 @@
 #include "lbann/layers/regularizers/instance_norm.hpp"
 
 /// Input layer
-#include "lbann/layers/io/input/input_layer.hpp"
+#include "lbann/layers/io/input_layer.hpp"
 
 /// Miscellaneous layers
 #include "lbann/layers/misc/covariance.hpp"
@@ -141,6 +141,7 @@
 #include "lbann/data_readers/data_reader_hdf5.hpp"
 #endif // LBANN_HAS_DISTCONV
 #include "lbann/data_readers/data_reader_smiles.hpp"
+#include "lbann/data_readers/data_reader_node2vec.hpp"
 
 /// Data stores
 #include "lbann/data_store/data_store_conduit.hpp"

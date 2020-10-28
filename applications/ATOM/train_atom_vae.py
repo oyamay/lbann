@@ -24,6 +24,7 @@ def construct_lc_launcher_args():
     parser.add_argument("--partition", default=None)
     parser.add_argument("--account", default="hpcdl")
     parser.add_argument("--scheduler", type=str, default="slurm")
+    parser.add_argument("--reservation", type=None)
     parser.add_argument(
         "--data-module-file",
         default="dataset.py",
@@ -55,7 +56,9 @@ def construct_lc_launcher_args():
     parser.add_argument("--sequence-length", type=int, default=None)
     parser.add_argument("--dump-weights-dir", type=str, default="weights")
     parser.add_argument("--dump-weights-interval", type=int, default=10)
-    parser.add_argument("--num-samples", type=int, default=None)
+    parser.add_argument("--num_samples", type=int, default=None)
+    parser.add_argument("--num_train_samples", type=int, default=None)
+    parser.add_argument("--num_test_samples", type=int, default=None)
     parser.add_argument("--num-io-threads", type=int, default=11)
     parser.add_argument("--vocab", default=None)
     parser.add_argument("--delimiter", default="c")
@@ -63,6 +66,7 @@ def construct_lc_launcher_args():
     parser.add_argument("--ltfb", type=bool, default=False)
     parser.add_argument("--ltfb-batch-interval", type=int, default=100)
     parser.add_argument("--weights-to-send", type=str, default='')
+    parser.add_argument("--warmup", type=bool, default=False)
 
     # these are specific to the Trainer object
     parser.add_argument(
@@ -135,7 +139,7 @@ def construct_model(run_args):
                  lbann.CallbackTimer()]
 
     if(run_args.dump_weights_interval > 0):
-      callbacks.append(lbann.CallbackDumpWeights(directory=run_args.dump_weights_dir, 
+      callbacks.append(lbann.CallbackDumpWeights(directory=run_args.dump_weights_dir,
                                               epoch_interval=run_args.dump_weights_interval))
     if(run_args.ltfb):
       send_name = ('' if run_args.weights_to_send == 'All' else run_args.weights_to_send) #hack for Merlin empty string
@@ -144,6 +148,12 @@ def construct_model(run_args):
       callbacks.append(lbann.CallbackLTFB(batch_interval=run_args.ltfb_batch_interval,metric='recon',
                                           weights = list2str(weights_to_ex),
                                           low_score_wins=True,exchange_hyperparameters=True))
+
+    if(run_args.warmup):
+        callbacks.append(
+            lbann.CallbackLinearGrowthLearningRate(
+                target=run_args.lr / 512 * run_args.batch_size, num_epochs=5))
+
     # Construct model
     return lbann.Model(run_args.num_epochs,
                        weights=weights,
@@ -241,7 +251,7 @@ def main():
       import torch
       torch.save(run_args, "{}/{}_config.pt".format(experiment_dir, run_args.job_name))
 
-    m_lbann_args=f"--vocab={run_args.vocab} --data_filedir={run_args.data_filedir} --data_filename_train={run_args.data_filename} --num_samples={run_args.num_samples} --sequence_length={run_args.sequence_length}  --num_io_threads={run_args.num_io_threads} --no_header={run_args.no_header} --delimiter={run_args.delimiter}"
+    m_lbann_args=f"--vocab={run_args.vocab} --data_filedir={run_args.data_filedir} --data_filename_train={run_args.data_filename} --num_samples={run_args.num_samples} --sequence_length={run_args.sequence_length}  --num_io_threads={run_args.num_io_threads} --no_header={run_args.no_header} --delimiter={run_args.delimiter} --num_train_samples={run_args.num_train_samples} --num_test_samples={run_args.num_test_samples}"
     if(run_args.data_reader_prototext):
       m_lbann_args = " ".join((m_lbann_args, " --use_data_store --preload_data_store "))
     if(run_args.ltfb):
@@ -255,10 +265,11 @@ def main():
         partition=run_args.partition,
         scheduler=run_args.scheduler,
         #account=run_args.account,
+        reservation=run_args.reservation,
         time_limit=run_args.time_limit,
         nodes=run_args.nodes,
         procs_per_node=ppn,
-        #batch_job = True,
+        batch_job = True,
         #setup_only = True,
         job_name=run_args.job_name,
         experiment_dir=experiment_dir,
